@@ -47,9 +47,10 @@ function App() {
             />
           </Routes>
         </div>
-        <footer className="py-8 border-t border-slate-900 mt-auto">
-          <div className="container mx-auto px-4 text-center text-slate-500 text-sm">
-            <p>&copy; {new Date().getFullYear()} DocuTube DKV ITS. All rights reserved.</p>
+        <footer className="py-8 border-t border-slate-900 mt-auto bg-slate-950">
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-slate-500 text-sm mb-2">&copy; {new Date().getFullYear()} DocuTube DKV ITS. All rights reserved.</p>
+            <p className="text-slate-700 text-xs">created by dhani soenyoto</p>
           </div>
         </footer>
       </div>

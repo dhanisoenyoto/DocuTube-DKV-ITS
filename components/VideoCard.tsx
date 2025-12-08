@@ -79,7 +79,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
-                  if(confirm('Apakah Anda yakin ingin menghapus video ini?')) onDelete(video.id);
+                  onDelete(video.id);
                 }}
                 className="text-slate-500 hover:text-red-500 p-1 transition-colors bg-slate-800 rounded hover:bg-slate-700"
                 title="Hapus Video"

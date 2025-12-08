@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar } from 'lucide-react';
+import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
 import { parseDriveLink, saveVideo, fileToBase64, getVideos, deleteVideo, getAverageRating } from '../services/videoService';
 import { VideoItem } from '../types';
 import { VideoCard } from '../components/VideoCard';
@@ -18,6 +18,9 @@ export const AdminPage: React.FC = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]);
   const [sortType, setSortType] = useState<SortType>('newest');
+  
+  // Delete Modal State
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,16 +110,52 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteVideo(id);
-    refreshVideos();
-    setMessage({ type: 'success', text: 'Video berhasil dihapus.' });
+  // Triggered by the delete button on the card
+  const requestDelete = (id: string) => {
+    setDeleteTargetId(id);
+  };
+
+  // Triggered by "Ya" in the modal
+  const confirmDelete = () => {
+    if (deleteTargetId) {
+      deleteVideo(deleteTargetId);
+      refreshVideos();
+      setMessage({ type: 'success', text: 'Video berhasil dihapus.' });
+      setDeleteTargetId(null);
+    }
   };
 
   const sortedVideos = getSortedVideos();
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
+      
+      {/* Disclaimer Section */}
+      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-8">
+        <div className="flex gap-3">
+          <AlertCircle className="w-6 h-6 text-yellow-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h3 className="text-yellow-500 font-bold text-sm uppercase tracking-wide">Disclaimer</h3>
+            <p className="text-sm text-yellow-200/80 leading-relaxed">
+              Selamat datang di laman admin unggah dokumen film dokumenter mata kuliah videografi 2025, gunakan dengan bijak, dilarang menyalah gunakan apps dan laman ini dengan tanpa seijin dosen pengampu. Apps ini hanya sebagai media bantu dalam screening dan penilaian bersama. Terima kasih sudah berprogres!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Status Header */}
+      <div className="flex items-center justify-between mb-8 bg-indigo-900/20 p-4 rounded-xl border border-indigo-500/30">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-600 rounded-full">
+             <UserCheck className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">SuperAdmin Active</h2>
+            <p className="text-xs text-indigo-300">Sedang aktif mengedit dan menambahkan video</p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Form Section */}
@@ -124,7 +163,7 @@ export const AdminPage: React.FC = () => {
           <div className="bg-slate-900 rounded-xl p-6 border border-slate-800 sticky top-24">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
               <Upload className="w-6 h-6 text-indigo-500" />
-              Admin Dashboard
+              Upload Video
             </h2>
 
             {message && (
@@ -288,15 +327,45 @@ export const AdminPage: React.FC = () => {
                     key={video.id} 
                     video={video} 
                     isAdmin 
-                    onDelete={handleDelete} 
+                    onDelete={requestDelete} 
                     onUpdate={refreshVideos}
                   />
                 ))}
              </div>
            )}
         </div>
-
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      {deleteTargetId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 rounded-2xl p-6 max-w-sm w-full border border-red-500/30 shadow-2xl">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Konfirmasi Hapus</h3>
+              <p className="text-slate-400">Apakah Anda yakin ingin menghapus video ini secara permanen?</p>
+              
+              <div className="flex gap-3 w-full pt-2">
+                <button 
+                  onClick={() => setDeleteTargetId(null)}
+                  className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-medium hover:bg-slate-700 transition-colors"
+                >
+                  Tidak
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors"
+                >
+                  Ya
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
