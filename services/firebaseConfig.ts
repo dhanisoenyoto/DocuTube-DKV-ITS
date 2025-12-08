@@ -11,8 +11,11 @@ import { getFirestore } from 'firebase/firestore';
 // 5. Salin nilai-nilai tersebut ke dalam object di bawah ini.
 
 const firebaseConfig = {
-  // Ganti string kosong "" dengan API Key asli Anda
-  apiKey: "ISI_API_KEY_ANDA_DISINI", 
+  // API Key telah diisi sesuai permintaan
+  apiKey: "AIzaSyDQqBGDvIEo90JGeRSuVsuf69QqCdNlc8I", 
+  
+  // NOTE: Jika Login atau Database tidak berjalan, pastikan nilai-nilai di bawah ini 
+  // sesuai dengan project Anda di Firebase Console.
   authDomain: "ISI_PROJECT_ID_ANDA.firebaseapp.com",
   projectId: "ISI_PROJECT_ID_ANDA",
   storageBucket: "ISI_PROJECT_ID_ANDA.appspot.com",
