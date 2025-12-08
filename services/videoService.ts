@@ -3,30 +3,34 @@ import { VideoItem, Comment } from '../types';
 const STORAGE_KEY = 'drivestream_db_v1';
 
 // Initial dummy data to populate the app if empty
+// Updated to reflect DKV ITS Documentary theme
 const INITIAL_DATA: VideoItem[] = [
   {
     id: 'demo-1',
-    title: 'Scenic Nature',
+    title: 'Jejak Pesisir: Kehidupan Nelayan Kenjeran',
     driveLink: 'https://drive.google.com/file/d/123456/view',
     embedUrl: 'https://www.youtube.com/embed/LXb3EKWsInQ',
-    thumbnailUrl: 'https://picsum.photos/800/450?random=1',
-    caption: 'A beautiful capture of nature in its purest form.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1534234828563-025321aa216e?auto=format&fit=crop&q=80&w=800',
+    caption: 'Sebuah dokumenter pendek yang merekam denyut kehidupan para nelayan di pesisir Surabaya, menyoroti tantangan modernisasi dan tradisi yang bertahan.',
     createdAt: Date.now(),
-    ratings: [5, 4, 5],
+    ratings: [5, 5, 4],
     comments: [
-      { id: 'c1', text: 'Amazing view!', createdAt: Date.now() - 100000 }
+      { id: 'c1', text: 'Visualnya sangat cinematic! Color gradingnya pas banget.', createdAt: Date.now() - 100000 },
+      { id: 'c2', text: 'Ceritanya menyentuh, editing rapi.', createdAt: Date.now() - 50000 }
     ]
   },
   {
     id: 'demo-2',
-    title: 'Urban Exploration',
+    title: 'Pasar Tradisional: Di Balik Hiruk Pikuk',
     driveLink: 'https://drive.google.com/file/d/789012/view',
     embedUrl: 'https://www.youtube.com/embed/ysz5S6P_z-U',
-    thumbnailUrl: 'https://picsum.photos/800/450?random=2',
-    caption: 'Exploring the depths of the city architecture.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1533900298318-6b8da08a523e?auto=format&fit=crop&q=80&w=800',
+    caption: 'Eksplorasi visual tentang interaksi manusia di pasar tradisional yang mulai tergerus zaman. Tugas Akhir Videografi Kelompok 3.',
     createdAt: Date.now() - 10000,
-    ratings: [3, 4],
-    comments: []
+    ratings: [4, 5],
+    comments: [
+      { id: 'c3', text: 'Angle pengambilannya kreatif banget.', createdAt: Date.now() - 20000 }
+    ]
   }
 ];
 
