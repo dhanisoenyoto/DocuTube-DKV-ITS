@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2 } from 'lucide-react';
+import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2, Cloud, CloudOff } from 'lucide-react';
 import { parseDriveLink, saveVideo, updateVideo, fileToBase64, getVideos, deleteVideo, getAverageRating } from '../services/videoService';
 import { getCurrentUser } from '../services/authService';
+import { isConfigured } from '../services/firebaseConfig';
 import { VideoItem } from '../types';
 import { VideoCard } from '../components/VideoCard';
 
@@ -120,6 +121,9 @@ export const AdminPage: React.FC = () => {
         const originalVideo = existingVideos.find(v => v.id === editingId);
         if (!originalVideo) throw new Error("Video tidak ditemukan.");
 
+        // Construct the updated object
+        // Note: comments and ratings are preserved in the object but updateVideo 
+        // will handle them safely (not overwriting db arrays)
         const updatedVideoItem: VideoItem = {
           ...originalVideo,
           title,
@@ -127,11 +131,10 @@ export const AdminPage: React.FC = () => {
           embedUrl,
           thumbnailUrl: base64Thumbnail,
           caption,
+          // We keep original ratings/comments in the object for local state optimism,
+          // but the service will ignore them for the DB update to be safe.
           ratings: originalVideo.ratings,
           comments: originalVideo.comments,
-          createdAt: originalVideo.createdAt,
-          // Preserve uploader info
-          uploadedBy: originalVideo.uploadedBy 
         };
 
         await updateVideo(updatedVideoItem);
@@ -163,9 +166,11 @@ export const AdminPage: React.FC = () => {
         setMessage({ type: 'success', text: 'Video berhasil ditambahkan ke galeri!' });
       }
 
+      // Refresh list to show changes
       await refreshVideos();
       
     } catch (err: any) {
+      console.error(err);
       setMessage({ type: 'error', text: err.message || 'Terjadi kesalahan saat menyimpan.' });
     } finally {
       setIsLoading(false);
@@ -207,7 +212,7 @@ export const AdminPage: React.FC = () => {
       </div>
 
       {/* Admin Status Header */}
-      <div className="flex items-center justify-between mb-8 bg-indigo-900/20 p-4 rounded-xl border border-indigo-500/30">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 bg-indigo-900/20 p-4 rounded-xl border border-indigo-500/30 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-600 rounded-full">
              <UserCheck className="w-5 h-5 text-white" />
@@ -217,9 +222,28 @@ export const AdminPage: React.FC = () => {
               {currentUser?.displayName || 'Admin'}
             </h2>
             <p className="text-xs text-indigo-300">
-              {currentUser?.email || 'Logged in'} - Mode Kontributor Aktif
+              {currentUser?.email || 'Logged in'}
             </p>
           </div>
+        </div>
+        
+        {/* Sync Status Indicator */}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ${
+          isConfigured 
+            ? 'bg-green-500/10 border-green-500/30 text-green-400' 
+            : 'bg-slate-700/50 border-slate-600 text-slate-400'
+        }`}>
+          {isConfigured ? (
+            <>
+              <Cloud className="w-3 h-3" />
+              <span>Cloud Synced (Online)</span>
+            </>
+          ) : (
+            <>
+              <CloudOff className="w-3 h-3" />
+              <span>Mode Lokal (Offline)</span>
+            </>
+          )}
         </div>
       </div>
 

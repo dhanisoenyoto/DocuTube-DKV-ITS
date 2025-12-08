@@ -34,6 +34,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     setHasRated(true);
     setUserRating(rating);
     await addRating(video.id, rating);
+    // Force refresh to show new rating immediately
     if (onUpdate) onUpdate();
   };
 
@@ -48,6 +49,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     await addComment(video.id, newComment, userName);
     setNewComment('');
     setIsSubmitting(false);
+    // Force refresh to show new comment immediately
     if (onUpdate) onUpdate();
   };
 

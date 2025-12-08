@@ -1,6 +1,6 @@
 import { VideoItem, Comment } from '../types';
 import { db, isConfigured } from './firebaseConfig';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
 
 const STORAGE_KEY = 'drivestream_db_v1';
 const COLLECTION_NAME = 'videos';
@@ -84,12 +84,12 @@ export const saveVideo = async (video: VideoItem): Promise<void> => {
       return;
     } catch (e) {
       console.error("Firebase save failed", e);
+      throw e;
     }
   }
   
   // Local Fallback
   const current = getLocalVideos();
-  // Ensure we don't save duplicates if switching modes, though simplified here
   const updated = [video, ...current];
   saveLocalVideos(updated);
 };
@@ -98,12 +98,14 @@ export const updateVideo = async (updatedVideo: VideoItem): Promise<void> => {
   if (isConfigured && db) {
     try {
       const videoRef = doc(db, COLLECTION_NAME, updatedVideo.id);
-      // We need to pass data, not the full object with ID (though firestore ignores id field if strict)
-      const { id, ...data } = updatedVideo;
+      // IMPORTANT: When updating video details (Edit), we exclude ratings/comments arrays 
+      // from the update payload to avoid overwriting concurrent atomic updates from other users.
+      const { id, ratings, comments, ...data } = updatedVideo;
       await updateDoc(videoRef, data as any);
       return;
     } catch (e) {
       console.error("Firebase update failed", e);
+      throw e;
     }
   }
 
@@ -111,6 +113,7 @@ export const updateVideo = async (updatedVideo: VideoItem): Promise<void> => {
   const current = getLocalVideos();
   const index = current.findIndex(v => v.id === updatedVideo.id);
   if (index !== -1) {
+    // For local, we just replace the whole object
     current[index] = updatedVideo;
     saveLocalVideos(current);
   }
@@ -123,6 +126,7 @@ export const deleteVideo = async (id: string): Promise<void> => {
       return;
     } catch (e) {
       console.error("Firebase delete failed", e);
+      throw e;
     }
   }
 
@@ -133,36 +137,57 @@ export const deleteVideo = async (id: string): Promise<void> => {
 };
 
 export const addRating = async (videoId: string, rating: number): Promise<void> => {
-  // We need to fetch the specific video first to append
-  // In a real app, this should be an arrayUnion or atomic transaction
-  // For simplicity, we reuse getVideos -> updateVideo flow logic, but optimized
+  // 1. Firebase Atomic Update
+  if (isConfigured && db) {
+    try {
+      const videoRef = doc(db, COLLECTION_NAME, videoId);
+      await updateDoc(videoRef, {
+        ratings: arrayUnion(rating)
+      });
+      return;
+    } catch (e) {
+      console.error("Firebase rating failed", e);
+    }
+  }
   
-  // Note: To avoid refetching everything, we assume the UI passes the latest state 
-  // OR we fetch single doc. Let's fetch single for robustness in firebase.
-  
-  // Simplified Hybrid Approach:
-  const videos = await getVideos();
+  // 2. Local Fallback (Standard Read-Modify-Write)
+  const videos = getLocalVideos();
   const video = videos.find(v => v.id === videoId);
   if (video) {
     if (!video.ratings) video.ratings = [];
     video.ratings.push(rating);
-    await updateVideo(video);
+    saveLocalVideos(videos);
   }
 };
 
 export const addComment = async (videoId: string, text: string, userName?: string): Promise<void> => {
-  const videos = await getVideos();
+  const newComment: Comment = {
+    id: crypto.randomUUID(),
+    text,
+    createdAt: Date.now(),
+    userName: userName || 'Anonymous'
+  };
+
+  // 1. Firebase Atomic Update
+  if (isConfigured && db) {
+    try {
+      const videoRef = doc(db, COLLECTION_NAME, videoId);
+      await updateDoc(videoRef, {
+        comments: arrayUnion(newComment)
+      });
+      return;
+    } catch (e) {
+      console.error("Firebase comment failed", e);
+    }
+  }
+
+  // 2. Local Fallback
+  const videos = getLocalVideos();
   const video = videos.find(v => v.id === videoId);
   if (video) {
     if (!video.comments) video.comments = [];
-    const newComment: Comment = {
-      id: crypto.randomUUID(),
-      text,
-      createdAt: Date.now(),
-      userName: userName || 'Anonymous'
-    };
     video.comments.unshift(newComment);
-    await updateVideo(video);
+    saveLocalVideos(videos);
   }
 };
 
