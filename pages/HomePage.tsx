@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { getVideos } from '../services/videoService';
 import { VideoItem } from '../types';
@@ -28,7 +29,7 @@ export const HomePage: React.FC = () => {
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-20 px-4">
         <div className="container mx-auto max-w-4xl text-center space-y-6">
           <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-            Screening Online Dokumenter - Videografi 2025
+            Screening Online Dokumenter 2025
           </h1>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto">
             Berikut adalah kumpulan dari film dokumenter mata kuliah videografi 2025, tonton, apresiasi, dan sebarkan!
