@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { VideoItem } from '../types';
-import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Copy } from 'lucide-react';
+import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Edit } from 'lucide-react';
 import { addRating, addComment, getAverageRating } from '../services/videoService';
 
 interface VideoCardProps {
   video: VideoItem;
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
+  onEdit?: (video: VideoItem) => void;
   onUpdate?: () => void; // Trigger parent refresh
 }
 
-export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, onUpdate }) => {
+export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, onEdit, onUpdate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [userRating, setUserRating] = useState<number>(0); // For user input interaction
@@ -98,21 +99,38 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
 
         {/* Content */}
         <div className="p-5 flex flex-col flex-grow">
-          <div className="flex justify-between items-start mb-2">
+          <div className="flex justify-between items-start mb-2 gap-2">
             <h3 className="font-bold text-lg text-slate-100 line-clamp-2 leading-tight hover:text-indigo-400 transition-colors cursor-pointer" onClick={() => setIsOpen(true)}>
               {video.title}
             </h3>
-            {isAdmin && onDelete && (
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(video.id);
-                }}
-                className="text-slate-500 hover:text-red-500 p-1 transition-colors bg-slate-800 rounded hover:bg-slate-700"
-                title="Hapus Video"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+            
+            {isAdmin && (
+              <div className="flex gap-1 shrink-0">
+                {onEdit && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(video);
+                    }}
+                    className="text-slate-500 hover:text-indigo-400 p-1.5 transition-colors bg-slate-800 rounded hover:bg-slate-700"
+                    title="Edit Video"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                )}
+                {onDelete && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(video.id);
+                    }}
+                    className="text-slate-500 hover:text-red-500 p-1.5 transition-colors bg-slate-800 rounded hover:bg-slate-700"
+                    title="Hapus Video"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
           

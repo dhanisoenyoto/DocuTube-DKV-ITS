@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
-import { parseDriveLink, saveVideo, fileToBase64, getVideos, deleteVideo, getAverageRating } from '../services/videoService';
+import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2 } from 'lucide-react';
+import { parseDriveLink, saveVideo, updateVideo, fileToBase64, getVideos, deleteVideo, getAverageRating } from '../services/videoService';
 import { VideoItem } from '../types';
 import { VideoCard } from '../components/VideoCard';
 
@@ -14,6 +13,8 @@ export const AdminPage: React.FC = () => {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]);
@@ -64,6 +65,26 @@ export const AdminPage: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const startEditing = (video: VideoItem) => {
+    setTitle(video.title);
+    setLink(video.driveLink);
+    setCaption(video.caption);
+    setThumbnailPreview(video.thumbnailUrl);
+    setThumbnailFile(null); // Reset file input, we use preview string unless changed
+    setEditingId(video.id);
+    setMessage(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEditing = () => {
+    setTitle('');
+    setLink('');
+    setCaption('');
+    clearThumbnail();
+    setEditingId(null);
+    setMessage(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -75,32 +96,58 @@ export const AdminPage: React.FC = () => {
         throw new Error("Link Google Drive tidak valid. Pastikan link dapat diakses publik atau gunakan link 'Share'.");
       }
 
-      if (!thumbnailFile) {
+      if (!thumbnailPreview && !thumbnailFile) {
         throw new Error("Mohon unggah thumbnail gambar.");
       }
 
-      const base64Thumbnail = await fileToBase64(thumbnailFile);
+      let base64Thumbnail = thumbnailPreview || '';
+      if (thumbnailFile) {
+        base64Thumbnail = await fileToBase64(thumbnailFile);
+      }
 
-      const newVideo: VideoItem = {
-        id: crypto.randomUUID(),
-        title,
-        driveLink: link,
-        embedUrl,
-        thumbnailUrl: base64Thumbnail,
-        caption,
-        createdAt: Date.now(),
-        ratings: [],
-        comments: []
-      };
+      if (editingId) {
+        // UPDATE MODE
+        const originalVideo = existingVideos.find(v => v.id === editingId);
+        if (!originalVideo) throw new Error("Video tidak ditemukan.");
 
-      saveVideo(newVideo);
-      
-      setTitle('');
-      setLink('');
-      setCaption('');
-      clearThumbnail();
-      
-      setMessage({ type: 'success', text: 'Video berhasil ditambahkan ke galeri!' });
+        const updatedVideoItem: VideoItem = {
+          ...originalVideo,
+          title,
+          driveLink: link,
+          embedUrl,
+          thumbnailUrl: base64Thumbnail,
+          caption,
+          // Preserve these fields
+          ratings: originalVideo.ratings,
+          comments: originalVideo.comments,
+          createdAt: originalVideo.createdAt,
+        };
+
+        updateVideo(updatedVideoItem);
+        setMessage({ type: 'success', text: 'Video berhasil diperbarui!' });
+        cancelEditing();
+      } else {
+        // CREATE MODE
+        const newVideo: VideoItem = {
+          id: crypto.randomUUID(),
+          title,
+          driveLink: link,
+          embedUrl,
+          thumbnailUrl: base64Thumbnail,
+          caption,
+          createdAt: Date.now(),
+          ratings: [],
+          comments: []
+        };
+
+        saveVideo(newVideo);
+        setTitle('');
+        setLink('');
+        setCaption('');
+        clearThumbnail();
+        setMessage({ type: 'success', text: 'Video berhasil ditambahkan ke galeri!' });
+      }
+
       refreshVideos();
       
     } catch (err: any) {
@@ -122,6 +169,9 @@ export const AdminPage: React.FC = () => {
       refreshVideos();
       setMessage({ type: 'success', text: 'Video berhasil dihapus.' });
       setDeleteTargetId(null);
+      if (editingId === deleteTargetId) {
+        cancelEditing();
+      }
     }
   };
 
@@ -160,10 +210,19 @@ export const AdminPage: React.FC = () => {
         
         {/* Form Section */}
         <div className="lg:col-span-1">
-          <div className="bg-slate-900 rounded-xl p-6 border border-slate-800 sticky top-24">
+          <div className={`bg-slate-900 rounded-xl p-6 border sticky top-24 transition-colors ${editingId ? 'border-indigo-500 shadow-indigo-500/10 shadow-lg' : 'border-slate-800'}`}>
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <Upload className="w-6 h-6 text-indigo-500" />
-              Upload Video
+              {editingId ? (
+                <>
+                  <Edit2 className="w-6 h-6 text-indigo-500" />
+                  Edit Video
+                </>
+              ) : (
+                <>
+                  <Upload className="w-6 h-6 text-indigo-500" />
+                  Upload Video
+                </>
+              )}
             </h2>
 
             {message && (
@@ -259,21 +318,33 @@ export const AdminPage: React.FC = () => {
                 />
               </div>
 
-              {/* Submit */}
-              <button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>Processing...</>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5" />
-                    Submit Video
-                  </>
+              {/* Buttons */}
+              <div className="flex flex-col gap-2">
+                <button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>Processing...</>
+                  ) : (
+                    <>
+                      {editingId ? <Edit2 className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
+                      {editingId ? 'Update Video' : 'Submit Video'}
+                    </>
+                  )}
+                </button>
+                
+                {editingId && (
+                  <button 
+                    type="button"
+                    onClick={cancelEditing}
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 px-4 rounded-lg transition-all"
+                  >
+                    Batal Edit
+                  </button>
                 )}
-              </button>
+              </div>
 
             </form>
           </div>
@@ -328,6 +399,7 @@ export const AdminPage: React.FC = () => {
                     video={video} 
                     isAdmin 
                     onDelete={requestDelete} 
+                    onEdit={startEditing}
                     onUpdate={refreshVideos}
                   />
                 ))}
