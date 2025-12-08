@@ -1,0 +1,302 @@
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar } from 'lucide-react';
+import { parseDriveLink, saveVideo, fileToBase64, getVideos, deleteVideo, getAverageRating } from '../services/videoService';
+import { VideoItem } from '../types';
+import { VideoCard } from '../components/VideoCard';
+
+type SortType = 'newest' | 'best' | 'worst';
+
+export const AdminPage: React.FC = () => {
+  const [title, setTitle] = useState('');
+  const [link, setLink] = useState('');
+  const [caption, setCaption] = useState('');
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]);
+  const [sortType, setSortType] = useState<SortType>('newest');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    refreshVideos();
+  }, []);
+
+  const refreshVideos = () => {
+    setExistingVideos(getVideos());
+  };
+
+  const getSortedVideos = () => {
+    const videos = [...existingVideos];
+    switch (sortType) {
+      case 'best':
+        return videos.sort((a, b) => getAverageRating(b.ratings || []) - getAverageRating(a.ratings || []));
+      case 'worst':
+        return videos.sort((a, b) => getAverageRating(a.ratings || []) - getAverageRating(b.ratings || []));
+      case 'newest':
+      default:
+        return videos.sort((a, b) => b.createdAt - a.createdAt);
+    }
+  };
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setThumbnailFile(file);
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setThumbnailPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearThumbnail = () => {
+    setThumbnailFile(null);
+    setThumbnailPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const embedUrl = parseDriveLink(link);
+      if (!embedUrl) {
+        throw new Error("Link Google Drive tidak valid. Pastikan link dapat diakses publik atau gunakan link 'Share'.");
+      }
+
+      if (!thumbnailFile) {
+        throw new Error("Mohon unggah thumbnail gambar.");
+      }
+
+      const base64Thumbnail = await fileToBase64(thumbnailFile);
+
+      const newVideo: VideoItem = {
+        id: crypto.randomUUID(),
+        title,
+        driveLink: link,
+        embedUrl,
+        thumbnailUrl: base64Thumbnail,
+        caption,
+        createdAt: Date.now(),
+        ratings: [],
+        comments: []
+      };
+
+      saveVideo(newVideo);
+      
+      setTitle('');
+      setLink('');
+      setCaption('');
+      clearThumbnail();
+      
+      setMessage({ type: 'success', text: 'Video berhasil ditambahkan ke galeri!' });
+      refreshVideos();
+      
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Terjadi kesalahan saat menyimpan.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    deleteVideo(id);
+    refreshVideos();
+    setMessage({ type: 'success', text: 'Video berhasil dihapus.' });
+  };
+
+  const sortedVideos = getSortedVideos();
+
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Form Section */}
+        <div className="lg:col-span-1">
+          <div className="bg-slate-900 rounded-xl p-6 border border-slate-800 sticky top-24">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+              <Upload className="w-6 h-6 text-indigo-500" />
+              Admin Dashboard
+            </h2>
+
+            {message && (
+              <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
+                message.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}>
+                {message.type === 'success' ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+                <p className="text-sm">{message.text}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Judul Video</label>
+                <div className="relative">
+                  <Type className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                  <input 
+                    type="text" 
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="Contoh: Dokumentasi Acara 2024"
+                  />
+                </div>
+              </div>
+
+              {/* Link */}
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Link Google Drive</label>
+                <div className="relative">
+                  <LinkIcon className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                  <input 
+                    type="url" 
+                    value={link}
+                    onChange={(e) => setLink(e.target.value)}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="https://drive.google.com/..."
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Pastikan akses link diatur ke "Anyone with the link".</p>
+              </div>
+
+              {/* Thumbnail */}
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Thumbnail</label>
+                <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-800 border-dashed rounded-lg hover:bg-slate-950/50 transition-colors ${!thumbnailPreview ? 'bg-slate-950' : ''}`}>
+                  {thumbnailPreview ? (
+                    <div className="relative w-full">
+                      <img src={thumbnailPreview} alt="Preview" className="w-full h-40 object-cover rounded-md" />
+                      <button 
+                        type="button" 
+                        onClick={clearThumbnail}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1 text-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      <FileImage className="mx-auto h-12 w-12 text-slate-500" />
+                      <div className="flex text-sm text-slate-400 justify-center">
+                        <span className="relative cursor-pointer rounded-md font-medium text-indigo-500 hover:text-indigo-400 focus-within:outline-none">
+                          Upload a file
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">PNG, JPG, GIF up to 5MB</p>
+                    </div>
+                  )}
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={handleThumbnailChange}
+                  />
+                </div>
+              </div>
+
+              {/* Caption */}
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Caption / Deskripsi</label>
+                <textarea 
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  rows={4}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                  placeholder="Ceritakan tentang video ini..."
+                />
+              </div>
+
+              {/* Submit */}
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>Processing...</>
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5" />
+                    Submit Video
+                  </>
+                )}
+              </button>
+
+            </form>
+          </div>
+        </div>
+
+        {/* List Section */}
+        <div className="lg:col-span-2 space-y-6">
+           <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
+              <h3 className="text-xl font-bold text-slate-200">Kelola Video ({existingVideos.length})</h3>
+              
+              {/* Sorting Controls */}
+              <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+                <button 
+                  onClick={() => setSortType('newest')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
+                    sortType === 'newest' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Calendar className="w-3 h-3" />
+                  Newest
+                </button>
+                <button 
+                  onClick={() => setSortType('best')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
+                    sortType === 'best' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <SortDesc className="w-3 h-3" />
+                  Best Rated
+                </button>
+                <button 
+                  onClick={() => setSortType('worst')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
+                    sortType === 'worst' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <SortAsc className="w-3 h-3" />
+                  Worst Rated
+                </button>
+              </div>
+           </div>
+           
+           {sortedVideos.length === 0 ? (
+             <div className="text-center py-12 bg-slate-900/50 rounded-xl border border-slate-800 border-dashed">
+               <p className="text-slate-500">Belum ada video yang diunggah.</p>
+             </div>
+           ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {sortedVideos.map(video => (
+                  <VideoCard 
+                    key={video.id} 
+                    video={video} 
+                    isAdmin 
+                    onDelete={handleDelete} 
+                    onUpdate={refreshVideos}
+                  />
+                ))}
+             </div>
+           )}
+        </div>
+
+      </div>
+    </div>
+  );
+};
