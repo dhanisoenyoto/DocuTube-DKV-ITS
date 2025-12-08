@@ -151,10 +151,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
         </div>
       </div>
 
-      {/* Video Modal */}
+      {/* Video Modal - Wide Split View Layout */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto">
-          <div className="relative w-full max-w-5xl bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col max-h-[95vh]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm p-2 md:p-6 animate-in fade-in duration-200 overflow-hidden">
+          <div className="relative w-full max-w-[95vw] lg:max-w-7xl h-[95vh] lg:h-[90vh] bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col">
             
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 bg-slate-900 border-b border-slate-800 shrink-0">
@@ -167,55 +167,61 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
               </button>
             </div>
             
-            {/* Video Player */}
-            <div className="relative aspect-video w-full bg-black shrink-0">
-              <iframe 
-                src={video.embedUrl} 
-                className="absolute inset-0 w-full h-full"
-                allow="autoplay; encrypted-media; fullscreen"
-                allowFullScreen
-                title={video.title}
-              />
-            </div>
+            {/* Main Content Area - Split Layout on Desktop */}
+            <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+              
+              {/* LEFT COLUMN: Video & Details (Scrollable) */}
+              <div className="flex-1 overflow-y-auto flex flex-col bg-black/20">
+                {/* Video Player */}
+                <div className="relative aspect-video w-full bg-black shrink-0">
+                  <iframe 
+                    src={video.embedUrl} 
+                    className="absolute inset-0 w-full h-full"
+                    allow="autoplay; encrypted-media; fullscreen"
+                    allowFullScreen
+                    title={video.title}
+                  />
+                </div>
 
-            {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
-                
-                {/* Left: Details, Share & Rating */}
-                <div className="lg:col-span-2 space-y-6">
-                  
-                  {/* Share Buttons */}
-                  <div className="flex flex-wrap gap-3">
+                {/* Info Container */}
+                <div className="p-6 md:p-8 space-y-8 pb-12">
+                   {/* Share Actions */}
+                   <div className="flex flex-wrap gap-3">
                     <button 
                       onClick={handleWhatsAppShare}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                      className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-green-900/20"
                     >
                       <MessageCircle className="w-4 h-4" />
                       Share WhatsApp
                     </button>
                     <button 
                       onClick={handleNativeShare}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors border border-slate-700"
+                      className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition-colors border border-slate-700 shadow-lg"
                     >
                       <Share2 className="w-4 h-4" />
-                      Share to IG / Copy
+                      Share / Copy Link
                     </button>
                   </div>
 
+                  {/* Caption */}
                   <div>
-                    <h4 className="text-sm font-bold text-indigo-400 mb-2 uppercase tracking-wider">Tentang Video</h4>
-                    <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-base">{video.caption}</p>
+                    <h4 className="text-sm font-bold text-indigo-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                      Tentang Video
+                    </h4>
+                    <p className="text-slate-200 leading-relaxed whitespace-pre-wrap text-base md:text-lg">{video.caption}</p>
                   </div>
 
-                  {/* Rating Section */}
-                  <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
-                    <div className="flex items-center justify-between mb-3">
+                  {/* Rating Box */}
+                  <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-800">
+                    <div className="flex items-center justify-between mb-4">
                        <h4 className="text-sm font-bold text-slate-300">Berikan Rating</h4>
-                       <span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded-full border border-slate-800">{ratingCount} ulasan</span>
+                       <span className="text-xs text-slate-500 bg-slate-950 px-3 py-1 rounded-full border border-slate-800">{ratingCount} ulasan</span>
                     </div>
-                    <div className="flex items-center gap-6">
-                      <div className="text-4xl font-bold text-white tracking-tighter">{avgRating}</div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+                      <div className="flex items-baseline gap-2">
+                         <div className="text-5xl font-bold text-white tracking-tighter">{avgRating}</div>
+                         <div className="text-slate-500 text-sm font-medium">/ 5.0</div>
+                      </div>
                       <div className="flex gap-2">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <button
@@ -225,7 +231,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                             className={`transition-all hover:scale-110 focus:outline-none p-1 ${hasRated ? 'cursor-default' : 'cursor-pointer'}`}
                           >
                             <Star 
-                              className={`w-8 h-8 ${
+                              className={`w-8 h-8 md:w-10 md:h-10 ${
                                 (hasRated ? userRating : 0) >= star || avgRating >= star 
                                   ? 'fill-yellow-400 text-yellow-400' 
                                   : 'text-slate-700 hover:text-yellow-400'
@@ -235,60 +241,72 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                         ))}
                       </div>
                     </div>
-                    {hasRated && <div className="mt-2 text-sm text-green-400 animate-pulse font-medium">Terima kasih atas rating Anda!</div>}
+                    {hasRated && <div className="mt-3 text-sm text-green-400 animate-pulse font-medium">Terima kasih atas rating Anda!</div>}
+                  </div>
+                
+                  <div className="text-xs text-slate-500 pt-4 border-t border-slate-800/50">
+                     Video diunggah pada {formattedDate}
                   </div>
                 </div>
+              </div>
 
-                {/* Right: Testimonials/Comments */}
-                <div className="lg:col-span-1 flex flex-col h-full min-h-[400px]">
-                  <h4 className="text-sm font-bold text-indigo-400 mb-4 uppercase tracking-wider flex items-center gap-2">
+              {/* RIGHT COLUMN: Comments (Sidebar) */}
+              <div className="w-full lg:w-[420px] bg-slate-900 flex flex-col border-t lg:border-t-0 lg:border-l border-slate-800 shrink-0 h-[500px] lg:h-auto">
+                <div className="p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
+                  <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
                     <MessageCircle className="w-4 h-4" />
                     Komentar & Testimoni
                   </h4>
-                  
-                  {/* Comments List */}
-                  <div className="flex-1 bg-slate-900 rounded-xl p-4 overflow-y-auto mb-4 border border-slate-800 max-h-[400px] shadow-inner">
-                    {comments.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-slate-600 space-y-2">
-                        <MessageCircle className="w-8 h-8 opacity-50" />
-                        <p className="text-sm">Belum ada komentar.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {comments.map((comment) => (
-                          <div key={comment.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800/50">
-                            <p className="text-slate-300 text-sm mb-2 leading-relaxed">{comment.text}</p>
-                            <p className="text-slate-600 text-[10px] text-right font-medium">
-                              {new Date(comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                </div>
 
-                  {/* Add Comment Form */}
+                {/* Scrollable List */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900/50">
+                  {comments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-600 space-y-3 opacity-60">
+                      <MessageCircle className="w-12 h-12" />
+                      <p className="text-sm font-medium">Belum ada komentar.</p>
+                      <p className="text-xs">Jadilah yang pertama memberikan testimoni!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pb-4">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-sm">
+                          <p className="text-slate-200 text-sm mb-3 leading-relaxed whitespace-pre-wrap">{comment.text}</p>
+                          <div className="flex justify-end">
+                            <span className="text-slate-600 text-[10px] font-medium bg-slate-900 px-2 py-1 rounded">
+                              {new Date(comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Input Area - Pinned to bottom */}
+                <div className="p-4 border-t border-slate-800 bg-slate-900 shrink-0">
                   <form onSubmit={handleSubmitComment} className="relative">
                     <div className="relative">
-                      <input
-                        type="text"
+                      <textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Tulis pendapatmu..."
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-4 pr-12 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-lg"
+                        placeholder="Tulis testimoni atau komentar Anda di sini..."
+                        rows={3}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-4 pr-12 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner resize-none"
                       />
                       <button 
                         type="submit"
                         disabled={!newComment.trim()}
-                        className="absolute right-2 top-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-all"
+                        className="absolute right-3 bottom-3 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-all shadow-lg"
+                        title="Kirim Komentar"
                       >
                         <Send className="w-4 h-4" />
                       </button>
                     </div>
                   </form>
                 </div>
-
               </div>
+
             </div>
           </div>
         </div>
