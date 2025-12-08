@@ -4,6 +4,7 @@ import { User } from '../types';
 
 // State to track current user
 let currentUser: User | null = null;
+const LOCAL_AUTH_KEY = 'docutube_local_user';
 
 // Helper to map Firebase User to our User type
 const mapUser = (user: FirebaseUser): User => ({
@@ -13,20 +14,32 @@ const mapUser = (user: FirebaseUser): User => ({
   photoURL: user.photoURL
 });
 
-// LOGIN FUNCTION
+// --- CREDENTIAL LOGIN (SUPERADMIN) ---
+export const loginWithCredentials = async (username: string, pass: string): Promise<User> => {
+  // Simulasi delay network
+  await new Promise(resolve => setTimeout(resolve, 800));
+
+  if (username === 'superadmin' && pass === '123456') {
+    const adminUser: User = {
+      uid: 'superadmin-local-id',
+      displayName: 'Super Admin',
+      email: 'admin@dkv.its.ac.id',
+      photoURL: null 
+    };
+    
+    // Simpan sesi di localStorage agar tahan refresh
+    localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(adminUser));
+    currentUser = adminUser;
+    return adminUser;
+  }
+  
+  throw new Error('Username atau password salah.');
+};
+
+// --- GOOGLE LOGIN (OPTIONAL / LEGACY) ---
 export const loginWithGoogle = async (): Promise<User | null> => {
   if (!isConfigured || !auth || !googleProvider) {
-    // Fallback Mock for Demo if no firebase keys
-    console.warn("Firebase not configured. Using Mock Login.");
-    const mockUser: User = {
-      uid: 'mock-user-123',
-      displayName: 'Demo User',
-      email: 'demo@dkv.its.ac.id',
-      photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
-    };
-    localStorage.setItem('mock_auth', 'true');
-    currentUser = mockUser;
-    return mockUser;
+    throw new Error('Firebase belum dikonfigurasi.');
   }
 
   try {
@@ -39,51 +52,65 @@ export const loginWithGoogle = async (): Promise<User | null> => {
   }
 };
 
-// LOGOUT FUNCTION
+// --- LOGOUT ---
 export const logout = async (): Promise<void> => {
-  if (!isConfigured || !auth) {
-    localStorage.removeItem('mock_auth');
-    currentUser = null;
-    return;
+  // 1. Clear Local Session
+  localStorage.removeItem(LOCAL_AUTH_KEY);
+  localStorage.removeItem('mock_auth');
+  
+  // 2. Clear Firebase Session (if exists)
+  if (isConfigured && auth) {
+    try {
+      await firebaseSignOut(auth);
+    } catch (e) {
+      console.warn("Firebase signout error", e);
+    }
   }
-  await firebaseSignOut(auth);
+  
   currentUser = null;
 };
 
-// GET CURRENT USER
+// --- GET CURRENT USER ---
 export const getCurrentUser = (): User | null => {
-  // If we have a firebase instance, auth.currentUser is the source of truth
+  // 1. Cek sesi lokal (Superadmin)
+  const localSession = localStorage.getItem(LOCAL_AUTH_KEY);
+  if (localSession) {
+    return JSON.parse(localSession);
+  }
+
+  // 2. Cek Firebase SDK
   if (isConfigured && auth?.currentUser) {
     return mapUser(auth.currentUser);
   }
-  // Fallback check for mock
-  if (!isConfigured && localStorage.getItem('mock_auth')) {
-    return currentUser || {
-        uid: 'mock-user-123',
-        displayName: 'Demo User',
-        email: 'demo@dkv.its.ac.id',
-        photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
-    };
-  }
-  return null;
+
+  // 3. Fallback variable memory
+  return currentUser;
 };
 
-// CHECK IF AUTHENTICATED
+// --- CHECK AUTH STATUS ---
 export const isAuthenticated = (): boolean => {
   return !!getCurrentUser();
 };
 
-// LISTENER FOR AUTH STATE CHANGES
+// --- AUTH LISTENER ---
 export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
+  // Cek state awal
+  callback(getCurrentUser());
+
+  // Jika pakai Firebase, listen perubahannya
+  let unsubscribeFirebase = () => {};
   if (isConfigured && auth) {
-    return onAuthStateChanged(auth, (user) => {
+    unsubscribeFirebase = onAuthStateChanged(auth, (user) => {
+      // Prioritaskan sesi lokal jika ada
+      if (localStorage.getItem(LOCAL_AUTH_KEY)) return;
+      
       const mapped = user ? mapUser(user) : null;
       currentUser = mapped;
       callback(mapped);
     });
-  } else {
-    // Mock listener
-    callback(getCurrentUser());
-    return () => {};
   }
+
+  return () => {
+    unsubscribeFirebase();
+  };
 };
