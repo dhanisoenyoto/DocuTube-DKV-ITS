@@ -1,28 +1,42 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2, Cloud, CloudOff } from 'lucide-react';
+import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2, Cloud, CloudOff, Settings, Save, LogOut } from 'lucide-react';
 import { parseDriveLink, saveVideo, updateVideo, fileToBase64, getVideos, deleteVideo, getAverageRating } from '../services/videoService';
 import { getCurrentUser } from '../services/authService';
-import { isConfigured } from '../services/firebaseConfig';
+import { isConfigured, saveFirebaseConfig, resetFirebaseConfig, firebaseConfig as currentConfig } from '../services/firebaseConfig';
 import { VideoItem } from '../types';
 import { VideoCard } from '../components/VideoCard';
 
 type SortType = 'newest' | 'best' | 'worst';
+type TabType = 'videos' | 'upload' | 'settings';
 
 export const AdminPage: React.FC = () => {
+  // Navigation State
+  const [activeTab, setActiveTab] = useState<TabType>(isConfigured ? 'videos' : 'settings');
+
+  // Video Form State
   const [title, setTitle] = useState('');
   const [link, setLink] = useState('');
   const [caption, setCaption] = useState('');
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
-  
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Config Form State
+  const [configForm, setConfigForm] = useState({
+    apiKey: currentConfig.apiKey || '',
+    authDomain: currentConfig.authDomain || '',
+    projectId: currentConfig.projectId || '',
+    storageBucket: currentConfig.storageBucket || '',
+    messagingSenderId: currentConfig.messagingSenderId || '',
+    appId: currentConfig.appId || ''
+  });
+
+  // System State
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]);
   const [sortType, setSortType] = useState<SortType>('newest');
-  
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +67,6 @@ export const AdminPage: React.FC = () => {
         return videos.sort((a, b) => getAverageRating(a.ratings || []) - getAverageRating(b.ratings || []));
       case 'newest':
       default:
-        // Already sorted by query for firestore, but re-sort for local changes
         return videos.sort((a, b) => b.createdAt - a.createdAt);
     }
   };
@@ -85,6 +98,7 @@ export const AdminPage: React.FC = () => {
     setThumbnailFile(null);
     setEditingId(video.id);
     setMessage(null);
+    setActiveTab('upload');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -121,9 +135,6 @@ export const AdminPage: React.FC = () => {
         const originalVideo = existingVideos.find(v => v.id === editingId);
         if (!originalVideo) throw new Error("Video tidak ditemukan.");
 
-        // Construct the updated object
-        // Note: comments and ratings are preserved in the object but updateVideo 
-        // will handle them safely (not overwriting db arrays)
         const updatedVideoItem: VideoItem = {
           ...originalVideo,
           title,
@@ -131,8 +142,6 @@ export const AdminPage: React.FC = () => {
           embedUrl,
           thumbnailUrl: base64Thumbnail,
           caption,
-          // We keep original ratings/comments in the object for local state optimism,
-          // but the service will ignore them for the DB update to be safe.
           ratings: originalVideo.ratings,
           comments: originalVideo.comments,
         };
@@ -142,7 +151,7 @@ export const AdminPage: React.FC = () => {
         cancelEditing();
       } else {
         const newVideo: VideoItem = {
-          id: crypto.randomUUID(), // Firestore will overwrite this if using addDoc, but ok for local
+          id: crypto.randomUUID(),
           title,
           driveLink: link,
           embedUrl,
@@ -164,9 +173,11 @@ export const AdminPage: React.FC = () => {
         setCaption('');
         clearThumbnail();
         setMessage({ type: 'success', text: 'Video berhasil ditambahkan ke galeri!' });
+        
+        // Pindah ke tab list setelah upload sukses
+        setTimeout(() => setActiveTab('videos'), 1500);
       }
 
-      // Refresh list to show changes
       await refreshVideos();
       
     } catch (err: any) {
@@ -193,13 +204,22 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const handleConfigSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!configForm.apiKey) {
+      setMessage({ type: 'error', text: 'API Key wajib diisi!' });
+      return;
+    }
+    saveFirebaseConfig(configForm);
+  };
+
   const sortedVideos = getSortedVideos();
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       
       {/* Disclaimer Section */}
-      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-8">
+      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-6">
         <div className="flex gap-3">
           <AlertCircle className="w-6 h-6 text-yellow-500 shrink-0 mt-0.5" />
           <div className="space-y-1">
@@ -227,12 +247,11 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
         
-        {/* Sync Status Indicator */}
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ${
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer hover:bg-slate-800 transition-colors ${
           isConfigured 
             ? 'bg-green-500/10 border-green-500/30 text-green-400' 
-            : 'bg-slate-700/50 border-slate-600 text-slate-400'
-        }`}>
+            : 'bg-red-500/10 border-red-500/30 text-red-400'
+        }`} onClick={() => setActiveTab('settings')}>
           {isConfigured ? (
             <>
               <Cloud className="w-3 h-3" />
@@ -241,215 +260,383 @@ export const AdminPage: React.FC = () => {
           ) : (
             <>
               <CloudOff className="w-3 h-3" />
-              <span>Mode Lokal (Offline)</span>
+              <span>Mode Offline (Klik untuk Setup)</span>
             </>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Navigation Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-slate-800 pb-1 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('videos')}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+            activeTab === 'videos' 
+              ? 'bg-slate-800 text-white border-b-2 border-indigo-500' 
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <SortAsc className="w-4 h-4" />
+          Daftar Video
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('upload');
+            cancelEditing();
+          }}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+            activeTab === 'upload' 
+              ? 'bg-slate-800 text-white border-b-2 border-indigo-500' 
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Upload className="w-4 h-4" />
+          Upload Baru
+        </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+            activeTab === 'settings' 
+              ? 'bg-slate-800 text-white border-b-2 border-indigo-500' 
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          Pengaturan Cloud
+        </button>
+      </div>
+
+      {/* CONTENT AREA */}
+      <div className="grid grid-cols-1 gap-8">
         
-        {/* Form Section */}
-        <div className="lg:col-span-1">
-          <div className={`bg-slate-900 rounded-xl p-6 border sticky top-24 transition-colors ${editingId ? 'border-indigo-500 shadow-indigo-500/10 shadow-lg' : 'border-slate-800'}`}>
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              {editingId ? (
-                <>
-                  <Edit2 className="w-6 h-6 text-indigo-500" />
-                  Edit Video
-                </>
-              ) : (
-                <>
-                  <Upload className="w-6 h-6 text-indigo-500" />
-                  Upload Video
-                </>
-              )}
-            </h2>
+        {/* --- SETTINGS TAB --- */}
+        {activeTab === 'settings' && (
+           <div className="bg-slate-900 rounded-xl p-6 border border-slate-800 max-w-2xl mx-auto w-full animate-in fade-in zoom-in-95 duration-200">
+             <div className="flex items-center gap-3 mb-6">
+               <div className="p-3 bg-indigo-600/20 rounded-lg">
+                 <Settings className="w-6 h-6 text-indigo-500" />
+               </div>
+               <div>
+                 <h2 className="text-xl font-bold text-white">Setup Koneksi Database</h2>
+                 <p className="text-sm text-slate-400">Hubungkan aplikasi ini ke Google Firebase agar data tersimpan online.</p>
+               </div>
+             </div>
 
-            {message && (
-              <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
-                message.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
-              }`}>
-                {message.type === 'success' ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-                <p className="text-sm">{message.text}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Judul Video</label>
-                <div className="relative">
-                  <Type className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
-                  <input 
-                    type="text" 
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    placeholder="Contoh: Dokumentasi Acara 2024"
-                  />
+             {!isConfigured ? (
+               <div className="mb-6 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-sm text-indigo-300 space-y-2">
+                 <p className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Panduan Singkat:</p>
+                 <ol className="list-decimal list-inside space-y-1 ml-1 text-indigo-200/80">
+                   <li>Buka <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="underline hover:text-white">console.firebase.google.com</a></li>
+                   <li>Buat project baru (gratis).</li>
+                   <li>Masuk ke <strong>Project Settings</strong> {'>'} <strong>General</strong>.</li>
+                   <li>Scroll ke bawah, klik icon <strong>Web ({'</>'})</strong> untuk buat app.</li>
+                   <li>Copy konfigurasi <code>firebaseConfig</code> dan paste di bawah ini.</li>
+                   <li>Jangan lupa aktifkan <strong>Authentication</strong> (Google) dan <strong>Firestore Database</strong> di console.</li>
+                 </ol>
+               </div>
+             ) : (
+                <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-400 flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5" />
+                  <div>
+                    <p className="font-bold">Terhubung ke Cloud!</p>
+                    <p className="opacity-80">Aplikasi sudah online. Data akan disinkronkan ke project Firebase Anda.</p>
+                  </div>
                 </div>
-              </div>
+             )}
 
-              {/* Link */}
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Link Google Drive</label>
-                <div className="relative">
-                  <LinkIcon className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
-                  <input 
-                    type="url" 
-                    value={link}
-                    onChange={(e) => setLink(e.target.value)}
-                    required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    placeholder="https://drive.google.com/..."
-                  />
-                </div>
-                <p className="text-xs text-slate-500 mt-1">Pastikan akses link diatur ke "Anyone with the link".</p>
-              </div>
+             <form onSubmit={handleConfigSave} className="space-y-4">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">API Key</label>
+                    <input 
+                      type="text" 
+                      value={configForm.apiKey}
+                      onChange={(e) => setConfigForm({...configForm, apiKey: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
+                      placeholder="AIzaSy..."
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Auth Domain</label>
+                    <input 
+                      type="text" 
+                      value={configForm.authDomain}
+                      onChange={(e) => setConfigForm({...configForm, authDomain: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
+                      placeholder="project-id.firebaseapp.com"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Project ID</label>
+                    <input 
+                      type="text" 
+                      value={configForm.projectId}
+                      onChange={(e) => setConfigForm({...configForm, projectId: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
+                      placeholder="project-id"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Storage Bucket</label>
+                    <input 
+                      type="text" 
+                      value={configForm.storageBucket}
+                      onChange={(e) => setConfigForm({...configForm, storageBucket: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
+                      placeholder="project-id.appspot.com"
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Messaging Sender ID</label>
+                    <input 
+                      type="text" 
+                      value={configForm.messagingSenderId}
+                      onChange={(e) => setConfigForm({...configForm, messagingSenderId: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
+                    />
+                 </div>
+                 <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">App ID</label>
+                    <input 
+                      type="text" 
+                      value={configForm.appId}
+                      onChange={(e) => setConfigForm({...configForm, appId: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
+                    />
+                 </div>
+               </div>
 
-              {/* Thumbnail */}
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Thumbnail</label>
-                <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-800 border-dashed rounded-lg hover:bg-slate-950/50 transition-colors ${!thumbnailPreview ? 'bg-slate-950' : ''}`}>
-                  {thumbnailPreview ? (
-                    <div className="relative w-full">
-                      <img src={thumbnailPreview} alt="Preview" className="w-full h-40 object-cover rounded-md" />
-                      <button 
-                        type="button" 
-                        onClick={clearThumbnail}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-1 text-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                      <FileImage className="mx-auto h-12 w-12 text-slate-500" />
-                      <div className="flex text-sm text-slate-400 justify-center">
-                        <span className="relative cursor-pointer rounded-md font-medium text-indigo-500 hover:text-indigo-400 focus-within:outline-none">
-                          Upload a file
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500">PNG, JPG, GIF up to 5MB</p>
-                    </div>
-                  )}
-                  <input 
-                    ref={fileInputRef}
-                    type="file" 
-                    className="hidden" 
-                    accept="image/*"
-                    onChange={handleThumbnailChange}
-                  />
-                </div>
-              </div>
-
-              {/* Caption */}
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-1">Caption / Deskripsi</label>
-                <textarea 
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  rows={4}
-                  required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
-                  placeholder="Ceritakan tentang video ini..."
-                />
-              </div>
-
-              {/* Buttons */}
-              <div className="flex flex-col gap-2">
-                <button 
-                  type="submit" 
-                  disabled={isLoading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isLoading ? (
-                    <>Processing...</>
-                  ) : (
-                    <>
-                      {editingId ? <Edit2 className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
-                      {editingId ? 'Update Video' : 'Submit Video'}
-                    </>
-                  )}
-                </button>
-                
-                {editingId && (
-                  <button 
-                    type="button"
-                    onClick={cancelEditing}
-                    className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 px-4 rounded-lg transition-all"
-                  >
-                    Batal Edit
-                  </button>
-                )}
-              </div>
-
-            </form>
-          </div>
-        </div>
-
-        {/* List Section */}
-        <div className="lg:col-span-2 space-y-6">
-           <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
-              <h3 className="text-xl font-bold text-slate-200">Kelola Video ({existingVideos.length})</h3>
-              
-              <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
-                <button 
-                  onClick={() => setSortType('newest')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
-                    sortType === 'newest' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Calendar className="w-3 h-3" />
-                  Newest
-                </button>
-                <button 
-                  onClick={() => setSortType('best')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
-                    sortType === 'best' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <SortDesc className="w-3 h-3" />
-                  Best Rated
-                </button>
-                <button 
-                  onClick={() => setSortType('worst')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
-                    sortType === 'worst' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <SortAsc className="w-3 h-3" />
-                  Worst Rated
-                </button>
-              </div>
+               <div className="pt-4 flex gap-3">
+                 <button 
+                   type="submit" 
+                   className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+                 >
+                   <Save className="w-4 h-4" />
+                   Simpan & Koneksikan
+                 </button>
+                 {isConfigured && (
+                   <button 
+                     type="button" 
+                     onClick={resetFirebaseConfig}
+                     className="px-4 py-2.5 bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded-lg transition-colors border border-red-900/50 flex items-center gap-2"
+                     title="Putuskan koneksi dan kembali ke mode offline"
+                   >
+                     <LogOut className="w-4 h-4" />
+                     Reset
+                   </button>
+                 )}
+               </div>
+             </form>
            </div>
-           
-           {isFetching ? (
-             <div className="flex items-center justify-center py-20 text-slate-500">
-                <Loader2 className="w-8 h-8 animate-spin mb-2" />
-             </div>
-           ) : sortedVideos.length === 0 ? (
-             <div className="text-center py-12 bg-slate-900/50 rounded-xl border border-slate-800 border-dashed">
-               <p className="text-slate-500">Belum ada video yang diunggah.</p>
-             </div>
-           ) : (
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {sortedVideos.map(video => (
-                  <VideoCard 
-                    key={video.id} 
-                    video={video} 
-                    isAdmin 
-                    onDelete={requestDelete} 
-                    onEdit={startEditing}
-                    onUpdate={refreshVideos}
+        )}
+
+        {/* --- UPLOAD / EDIT TAB --- */}
+        {activeTab === 'upload' && (
+          <div className="max-w-2xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className={`bg-slate-900 rounded-xl p-6 border transition-colors ${editingId ? 'border-indigo-500 shadow-indigo-500/10 shadow-lg' : 'border-slate-800'}`}>
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                {editingId ? (
+                  <>
+                    <Edit2 className="w-6 h-6 text-indigo-500" />
+                    Edit Video
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-6 h-6 text-indigo-500" />
+                    Upload Video Baru
+                  </>
+                )}
+              </h2>
+
+              {message && (
+                <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
+                  message.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                }`}>
+                  {message.type === 'success' ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+                  <p className="text-sm">{message.text}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Judul Video</label>
+                  <div className="relative">
+                    <Type className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                    <input 
+                      type="text" 
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      required
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      placeholder="Contoh: Dokumentasi Acara 2024"
+                    />
+                  </div>
+                </div>
+
+                {/* Link */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Link Google Drive</label>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                    <input 
+                      type="url" 
+                      value={link}
+                      onChange={(e) => setLink(e.target.value)}
+                      required
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      placeholder="https://drive.google.com/..."
+                    />
+                  </div>
+                </div>
+
+                {/* Thumbnail */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Thumbnail</label>
+                  <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-800 border-dashed rounded-lg hover:bg-slate-950/50 transition-colors ${!thumbnailPreview ? 'bg-slate-950' : ''}`}>
+                    {thumbnailPreview ? (
+                      <div className="relative w-full">
+                        <img src={thumbnailPreview} alt="Preview" className="w-full h-40 object-cover rounded-md" />
+                        <button 
+                          type="button" 
+                          onClick={clearThumbnail}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                        <FileImage className="mx-auto h-12 w-12 text-slate-500" />
+                        <div className="flex text-sm text-slate-400 justify-center">
+                          <span className="relative cursor-pointer rounded-md font-medium text-indigo-500 hover:text-indigo-400 focus-within:outline-none">
+                            Upload a file
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500">PNG, JPG, GIF up to 5MB</p>
+                      </div>
+                    )}
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={handleThumbnailChange}
+                    />
+                  </div>
+                </div>
+
+                {/* Caption */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Caption / Deskripsi</label>
+                  <textarea 
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
+                    rows={4}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                    placeholder="Ceritakan tentang video ini..."
                   />
-                ))}
+                </div>
+
+                {/* Buttons */}
+                <div className="flex flex-col gap-2 pt-2">
+                  <button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <>Processing...</>
+                    ) : (
+                      <>
+                        {editingId ? <Edit2 className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
+                        {editingId ? 'Update Video' : 'Submit Video'}
+                      </>
+                    )}
+                  </button>
+                  
+                  {editingId && (
+                    <button 
+                      type="button"
+                      onClick={cancelEditing}
+                      className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 px-4 rounded-lg transition-all"
+                    >
+                      Batal Edit
+                    </button>
+                  )}
+                </div>
+
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* --- LIST TAB --- */}
+        {activeTab === 'videos' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+             <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
+                <h3 className="text-xl font-bold text-slate-200">Daftar Video ({existingVideos.length})</h3>
+                
+                <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+                  <button 
+                    onClick={() => setSortType('newest')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
+                      sortType === 'newest' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Calendar className="w-3 h-3" />
+                    Newest
+                  </button>
+                  <button 
+                    onClick={() => setSortType('best')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
+                      sortType === 'best' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <SortDesc className="w-3 h-3" />
+                    Best Rated
+                  </button>
+                  <button 
+                    onClick={() => setSortType('worst')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
+                      sortType === 'worst' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <SortAsc className="w-3 h-3" />
+                    Worst Rated
+                  </button>
+                </div>
              </div>
-           )}
-        </div>
+             
+             {isFetching ? (
+               <div className="flex items-center justify-center py-20 text-slate-500">
+                  <Loader2 className="w-8 h-8 animate-spin mb-2" />
+               </div>
+             ) : sortedVideos.length === 0 ? (
+               <div className="text-center py-12 bg-slate-900/50 rounded-xl border border-slate-800 border-dashed">
+                 <p className="text-slate-500">Belum ada video yang diunggah.</p>
+                 <button onClick={() => setActiveTab('upload')} className="mt-4 text-indigo-400 hover:text-indigo-300 text-sm font-medium">
+                   Upload video pertama Anda &rarr;
+                 </button>
+               </div>
+             ) : (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sortedVideos.map(video => (
+                    <VideoCard 
+                      key={video.id} 
+                      video={video} 
+                      isAdmin 
+                      onDelete={requestDelete} 
+                      onEdit={startEditing}
+                      onUpdate={refreshVideos}
+                    />
+                  ))}
+               </div>
+             )}
+          </div>
+        )}
+
       </div>
 
       {/* Custom Delete Confirmation Modal */}
