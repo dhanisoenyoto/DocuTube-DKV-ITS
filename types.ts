@@ -2,6 +2,14 @@ export interface Comment {
   id: string;
   text: string;
   createdAt: number;
+  userName?: string; // Optional: who commented
+}
+
+export interface User {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
 }
 
 export interface VideoItem {
@@ -9,11 +17,16 @@ export interface VideoItem {
   title: string;
   driveLink: string;
   embedUrl: string;
-  thumbnailUrl: string; // Base64 or external URL
+  thumbnailUrl: string; 
   caption: string;
   createdAt: number;
-  ratings: number[]; // Array of ratings (1-5)
+  ratings: number[];
   comments: Comment[];
+  uploadedBy?: {
+    uid: string;
+    name: string;
+    photoURL?: string;
+  };
 }
 
 export interface VideoFormData {

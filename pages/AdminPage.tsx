@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2 } from 'lucide-react';
+import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2 } from 'lucide-react';
 import { parseDriveLink, saveVideo, updateVideo, fileToBase64, getVideos, deleteVideo, getAverageRating } from '../services/videoService';
+import { getCurrentUser } from '../services/authService';
 import { VideoItem } from '../types';
 import { VideoCard } from '../components/VideoCard';
 
@@ -16,21 +17,30 @@ export const AdminPage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]);
   const [sortType, setSortType] = useState<SortType>('newest');
   
-  // Delete Modal State
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentUser = getCurrentUser();
 
   useEffect(() => {
     refreshVideos();
   }, []);
 
-  const refreshVideos = () => {
-    setExistingVideos(getVideos());
+  const refreshVideos = async () => {
+    setIsFetching(true);
+    try {
+      const data = await getVideos();
+      setExistingVideos(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFetching(false);
+    }
   };
 
   const getSortedVideos = () => {
@@ -42,6 +52,7 @@ export const AdminPage: React.FC = () => {
         return videos.sort((a, b) => getAverageRating(a.ratings || []) - getAverageRating(b.ratings || []));
       case 'newest':
       default:
+        // Already sorted by query for firestore, but re-sort for local changes
         return videos.sort((a, b) => b.createdAt - a.createdAt);
     }
   };
@@ -70,7 +81,7 @@ export const AdminPage: React.FC = () => {
     setLink(video.driveLink);
     setCaption(video.caption);
     setThumbnailPreview(video.thumbnailUrl);
-    setThumbnailFile(null); // Reset file input, we use preview string unless changed
+    setThumbnailFile(null);
     setEditingId(video.id);
     setMessage(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -106,7 +117,6 @@ export const AdminPage: React.FC = () => {
       }
 
       if (editingId) {
-        // UPDATE MODE
         const originalVideo = existingVideos.find(v => v.id === editingId);
         if (!originalVideo) throw new Error("Video tidak ditemukan.");
 
@@ -117,19 +127,19 @@ export const AdminPage: React.FC = () => {
           embedUrl,
           thumbnailUrl: base64Thumbnail,
           caption,
-          // Preserve these fields
           ratings: originalVideo.ratings,
           comments: originalVideo.comments,
           createdAt: originalVideo.createdAt,
+          // Preserve uploader info
+          uploadedBy: originalVideo.uploadedBy 
         };
 
-        updateVideo(updatedVideoItem);
+        await updateVideo(updatedVideoItem);
         setMessage({ type: 'success', text: 'Video berhasil diperbarui!' });
         cancelEditing();
       } else {
-        // CREATE MODE
         const newVideo: VideoItem = {
-          id: crypto.randomUUID(),
+          id: crypto.randomUUID(), // Firestore will overwrite this if using addDoc, but ok for local
           title,
           driveLink: link,
           embedUrl,
@@ -137,10 +147,15 @@ export const AdminPage: React.FC = () => {
           caption,
           createdAt: Date.now(),
           ratings: [],
-          comments: []
+          comments: [],
+          uploadedBy: currentUser ? {
+            uid: currentUser.uid,
+            name: currentUser.displayName || 'Unknown',
+            photoURL: currentUser.photoURL || undefined
+          } : undefined
         };
 
-        saveVideo(newVideo);
+        await saveVideo(newVideo);
         setTitle('');
         setLink('');
         setCaption('');
@@ -148,7 +163,7 @@ export const AdminPage: React.FC = () => {
         setMessage({ type: 'success', text: 'Video berhasil ditambahkan ke galeri!' });
       }
 
-      refreshVideos();
+      await refreshVideos();
       
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Terjadi kesalahan saat menyimpan.' });
@@ -157,16 +172,14 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  // Triggered by the delete button on the card
   const requestDelete = (id: string) => {
     setDeleteTargetId(id);
   };
 
-  // Triggered by "Ya" in the modal
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteTargetId) {
-      deleteVideo(deleteTargetId);
-      refreshVideos();
+      await deleteVideo(deleteTargetId);
+      await refreshVideos();
       setMessage({ type: 'success', text: 'Video berhasil dihapus.' });
       setDeleteTargetId(null);
       if (editingId === deleteTargetId) {
@@ -200,8 +213,12 @@ export const AdminPage: React.FC = () => {
              <UserCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">SuperAdmin Active</h2>
-            <p className="text-xs text-indigo-300">Sedang aktif mengedit dan menambahkan video</p>
+            <h2 className="text-lg font-bold text-white">
+              {currentUser?.displayName || 'Admin'}
+            </h2>
+            <p className="text-xs text-indigo-300">
+              {currentUser?.email || 'Logged in'} - Mode Kontributor Aktif
+            </p>
           </div>
         </div>
       </div>
@@ -355,7 +372,6 @@ export const AdminPage: React.FC = () => {
            <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
               <h3 className="text-xl font-bold text-slate-200">Kelola Video ({existingVideos.length})</h3>
               
-              {/* Sorting Controls */}
               <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
                 <button 
                   onClick={() => setSortType('newest')}
@@ -387,7 +403,11 @@ export const AdminPage: React.FC = () => {
               </div>
            </div>
            
-           {sortedVideos.length === 0 ? (
+           {isFetching ? (
+             <div className="flex items-center justify-center py-20 text-slate-500">
+                <Loader2 className="w-8 h-8 animate-spin mb-2" />
+             </div>
+           ) : sortedVideos.length === 0 ? (
              <div className="text-center py-12 bg-slate-900/50 rounded-xl border border-slate-800 border-dashed">
                <p className="text-slate-500">Belum ada video yang diunggah.</p>
              </div>

@@ -1,13 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage } from './pages/LoginPage';
-import { isAuthenticated, logout } from './services/authService';
+import { isAuthenticated, logout, subscribeToAuthChanges } from './services/authService';
 
 function App() {
   const [isAuth, setIsAuth] = useState<boolean>(isAuthenticated());
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthChanges((user) => {
+      setIsAuth(!!user);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleLoginSuccess = () => {
     setIsAuth(true);

@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { getVideos } from '../services/videoService';
 import { VideoItem } from '../types';
 import { VideoCard } from '../components/VideoCard';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -11,19 +10,26 @@ export const HomePage: React.FC = () => {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadVideos();
   }, []);
 
-  // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const loadVideos = () => {
-    const data = getVideos();
-    setVideos(data);
+  const loadVideos = async () => {
+    // Keep loading true for at least a beat to show UI stability or waiting for DB
+    try {
+      const data = await getVideos();
+      setVideos(data);
+    } catch (err) {
+      console.error("Failed to load videos", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filteredVideos = videos.filter(v => 
@@ -31,7 +37,6 @@ export const HomePage: React.FC = () => {
     v.caption.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Pagination Logic
   const totalPages = Math.ceil(filteredVideos.length / ITEMS_PER_PAGE);
   const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
   const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
@@ -39,7 +44,6 @@ export const HomePage: React.FC = () => {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Smooth scroll to top of grid when changing page
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -72,7 +76,12 @@ export const HomePage: React.FC = () => {
 
       {/* Grid Section */}
       <div className="container mx-auto px-4 py-12">
-        {filteredVideos.length > 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+            <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500" />
+            <p>Memuat galeri video...</p>
+          </div>
+        ) : filteredVideos.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {currentVideos.map((video) => (

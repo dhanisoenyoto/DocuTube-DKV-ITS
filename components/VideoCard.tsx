@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
 import { VideoItem } from '../types';
-import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Edit } from 'lucide-react';
+import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Edit, User as UserIcon } from 'lucide-react';
 import { addRating, addComment, getAverageRating } from '../services/videoService';
+import { getCurrentUser } from '../services/authService';
 
 interface VideoCardProps {
   video: VideoItem;
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
   onEdit?: (video: VideoItem) => void;
-  onUpdate?: () => void; // Trigger parent refresh
+  onUpdate?: () => void;
 }
 
 export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, onEdit, onUpdate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [userRating, setUserRating] = useState<number>(0); // For user input interaction
+  const [userRating, setUserRating] = useState<number>(0); 
   const [hasRated, setHasRated] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const avgRating = getAverageRating(video.ratings || []);
   const ratingCount = video.ratings?.length || 0;
@@ -27,20 +29,25 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     day: 'numeric'
   });
 
-  const handleRate = (rating: number) => {
+  const handleRate = async (rating: number) => {
     if (hasRated) return;
-    addRating(video.id, rating);
     setHasRated(true);
     setUserRating(rating);
+    await addRating(video.id, rating);
     if (onUpdate) onUpdate();
   };
 
-  const handleSubmitComment = (e: React.FormEvent) => {
+  const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
     
-    addComment(video.id, newComment);
+    setIsSubmitting(true);
+    const currentUser = getCurrentUser();
+    const userName = currentUser?.displayName || 'Pengunjung';
+
+    await addComment(video.id, newComment, userName);
     setNewComment('');
+    setIsSubmitting(false);
     if (onUpdate) onUpdate();
   };
 
@@ -64,7 +71,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
         console.log('Error sharing:', err);
       }
     } else {
-      // Fallback for desktop/unsupported browsers
       const textToCopy = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
       navigator.clipboard.writeText(textToCopy);
       alert('Info video dan Link berhasil disalin! Anda dapat menempelkannya di Instagram Story atau pesan lainnya.');
@@ -90,7 +96,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
             </div>
           </div>
           
-          {/* Badge Rating on Card */}
           <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-xs font-bold text-yellow-400 flex items-center gap-1">
             <Star className="w-3 h-3 fill-yellow-400" />
             {avgRating > 0 ? avgRating : '-'}
@@ -143,20 +148,21 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
               <Clock className="w-3 h-3" />
               <span>{formattedDate}</span>
             </div>
-            <div className="flex items-center gap-1 text-slate-500 text-xs">
-              <MessageCircle className="w-3 h-3" />
-              <span>{comments.length}</span>
-            </div>
+            {video.uploadedBy && (
+              <div className="flex items-center gap-1.5 text-slate-500 text-xs" title={`Diunggah oleh ${video.uploadedBy.name}`}>
+                <UserIcon className="w-3 h-3" />
+                <span className="truncate max-w-[80px]">{video.uploadedBy.name.split(' ')[0]}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Video Modal - Wide Split View Layout */}
+      {/* Video Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm p-2 md:p-6 animate-in fade-in duration-200 overflow-hidden">
           <div className="relative w-full max-w-[95vw] lg:max-w-7xl h-[95vh] lg:h-[90vh] bg-slate-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col">
             
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-4 bg-slate-900 border-b border-slate-800 shrink-0">
               <h3 className="font-semibold text-lg truncate pr-4 text-slate-100 max-w-[80%]">{video.title}</h3>
               <button 
@@ -167,12 +173,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
               </button>
             </div>
             
-            {/* Main Content Area - Split Layout on Desktop */}
             <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-              
-              {/* LEFT COLUMN: Video & Details (Scrollable) */}
               <div className="flex-1 overflow-y-auto flex flex-col bg-black/20">
-                {/* Video Player */}
                 <div className="relative aspect-video w-full bg-black shrink-0">
                   <iframe 
                     src={video.embedUrl} 
@@ -183,9 +185,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                   />
                 </div>
 
-                {/* Info Container */}
                 <div className="p-6 md:p-8 space-y-8 pb-12">
-                   {/* Share Actions */}
                    <div className="flex flex-wrap gap-3">
                     <button 
                       onClick={handleWhatsAppShare}
@@ -203,15 +203,16 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                     </button>
                   </div>
 
-                  {/* Caption */}
                   <div>
                     <h4 className="text-sm font-bold text-indigo-400 mb-3 uppercase tracking-wider flex items-center gap-2">
                       Tentang Video
                     </h4>
                     <p className="text-slate-200 leading-relaxed whitespace-pre-wrap text-base md:text-lg">{video.caption}</p>
+                    {video.uploadedBy && (
+                      <p className="text-xs text-slate-500 mt-2 italic">Diunggah oleh: {video.uploadedBy.name}</p>
+                    )}
                   </div>
 
-                  {/* Rating Box */}
                   <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-800">
                     <div className="flex items-center justify-between mb-4">
                        <h4 className="text-sm font-bold text-slate-300">Berikan Rating</h4>
@@ -250,7 +251,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Comments (Sidebar) */}
               <div className="w-full lg:w-[420px] bg-slate-900 flex flex-col border-t lg:border-t-0 lg:border-l border-slate-800 shrink-0 h-[500px] lg:h-auto">
                 <div className="p-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
                   <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
@@ -259,7 +259,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                   </h4>
                 </div>
 
-                {/* Scrollable List */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900/50">
                   {comments.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-600 space-y-3 opacity-60">
@@ -271,10 +270,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                     <div className="space-y-4 pb-4">
                       {comments.map((comment) => (
                         <div key={comment.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-sm">
-                          <p className="text-slate-200 text-sm mb-3 leading-relaxed whitespace-pre-wrap">{comment.text}</p>
-                          <div className="flex justify-end">
-                            <span className="text-slate-600 text-[10px] font-medium bg-slate-900 px-2 py-1 rounded">
-                              {new Date(comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          <p className="text-slate-200 text-sm mb-2 leading-relaxed whitespace-pre-wrap">{comment.text}</p>
+                          <div className="flex justify-between items-end border-t border-slate-900 pt-2 mt-2">
+                             <span className="text-indigo-400 text-xs font-semibold">{comment.userName || 'Anonymous'}</span>
+                             <span className="text-slate-600 text-[10px] font-medium">
+                              {new Date(comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                             </span>
                           </div>
                         </div>
@@ -283,7 +283,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                   )}
                 </div>
 
-                {/* Input Area - Pinned to bottom */}
                 <div className="p-4 border-t border-slate-800 bg-slate-900 shrink-0">
                   <form onSubmit={handleSubmitComment} className="relative">
                     <div className="relative">
@@ -293,14 +292,15 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                         placeholder="Tulis testimoni atau komentar Anda di sini..."
                         rows={3}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-4 pr-12 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner resize-none"
+                        disabled={isSubmitting}
                       />
                       <button 
                         type="submit"
-                        disabled={!newComment.trim()}
+                        disabled={!newComment.trim() || isSubmitting}
                         className="absolute right-3 bottom-3 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-all shadow-lg"
                         title="Kirim Komentar"
                       >
-                        <Send className="w-4 h-4" />
+                        {isSubmitting ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                       </button>
                     </div>
                   </form>
