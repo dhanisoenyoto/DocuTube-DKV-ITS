@@ -2,30 +2,28 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// --- KONFIGURASI FIREBASE ---
-// TUGAS ANDA:
-// 1. Buka https://console.firebase.google.com/
-// 2. Buat Project baru atau pilih project yang ada.
-// 3. Masuk ke Project Settings -> General -> Your apps -> SDK setup and configuration.
-// 4. Pilih 'Config' (bukan CDN).
-// 5. Salin nilai-nilai tersebut ke dalam object di bawah ini.
+// =========================================================================
+// KONFIGURASI FIREBASE DOCUTUBE DKV ITS
+// =========================================================================
 
 const firebaseConfig = {
-  // API Key telah diisi sesuai permintaan
+  // API Key Anda (Pastikan ini dari project filmdokumenter2025-65628)
   apiKey: "AIzaSyDQqBGDvIEo90JGeRSuVsuf69QqCdNlc8I", 
   
-  // NOTE: Jika Login atau Database tidak berjalan, pastikan nilai-nilai di bawah ini 
-  // sesuai dengan project Anda di Firebase Console.
-  authDomain: "ISI_PROJECT_ID_ANDA.firebaseapp.com",
-  projectId: "ISI_PROJECT_ID_ANDA",
-  storageBucket: "ISI_PROJECT_ID_ANDA.appspot.com",
-  messagingSenderId: "ISI_SENDER_ID_ANDA",
-  appId: "ISI_APP_ID_ANDA"
+  // Konfigurasi Project (Diupdate sesuai request user)
+  authDomain: "filmdokumenter2025-65628.firebaseapp.com",
+  projectId: "filmdokumenter2025-65628",
+  storageBucket: "filmdokumenter2025-65628.firebasestorage.app",
+  messagingSenderId: "KOSONGKAN_TIDAK_APA2",
+  appId: "KOSONGKAN_TIDAK_APA2"
 };
 
-// --- INITIALIZATION ---
-// Mengecek apakah config sudah diisi user atau belum
-const isConfigured = firebaseConfig.apiKey !== "ISI_API_KEY_ANDA_DISINI" && firebaseConfig.apiKey !== "";
+// =========================================================================
+
+// System Check: Validasi konfigurasi
+const isConfigured = firebaseConfig.projectId !== "GANTI_DENGAN_PROJECT_ID" && 
+                     !firebaseConfig.projectId.includes("ISI_") &&
+                     firebaseConfig.apiKey !== "";
 
 let app;
 let auth;
@@ -38,16 +36,12 @@ if (isConfigured) {
     auth = getAuth(app);
     db = getFirestore(app);
     googleProvider = new GoogleAuthProvider();
-    console.log("Firebase initialized successfully");
+    console.log("✅ Firebase Online: Connected to", firebaseConfig.projectId);
   } catch (error) {
-    console.error("Firebase init failed:", error);
+    console.error("❌ Firebase Error:", error);
   }
 } else {
-  console.warn("⚠️ PERINGATAN: API Key Firebase belum diisi di services/firebaseConfig.ts. Aplikasi berjalan dalam Mode Offline (Data tidak akan tersimpan online).");
+  console.log("⚠️ Firebase Offline: Menggunakan Mode Demo (Data Lokal)");
 }
-
-// Tidak ada lagi fungsi save/reset dinamis karena sekarang hardcoded di file
-export const saveFirebaseConfig = () => {}; 
-export const resetFirebaseConfig = () => {};
 
 export { auth, db, googleProvider, isConfigured, firebaseConfig };
