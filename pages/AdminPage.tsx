@@ -1,17 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2, Cloud, CloudOff, Settings, Save, LogOut } from 'lucide-react';
+import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2, Cloud, CloudOff } from 'lucide-react';
 import { parseDriveLink, saveVideo, updateVideo, fileToBase64, getVideos, deleteVideo, getAverageRating } from '../services/videoService';
 import { getCurrentUser } from '../services/authService';
-import { isConfigured, saveFirebaseConfig, resetFirebaseConfig, firebaseConfig as currentConfig } from '../services/firebaseConfig';
+import { isConfigured } from '../services/firebaseConfig';
 import { VideoItem } from '../types';
 import { VideoCard } from '../components/VideoCard';
 
 type SortType = 'newest' | 'best' | 'worst';
-type TabType = 'videos' | 'upload' | 'settings';
+type TabType = 'videos' | 'upload';
 
 export const AdminPage: React.FC = () => {
   // Navigation State
-  const [activeTab, setActiveTab] = useState<TabType>(isConfigured ? 'videos' : 'settings');
+  const [activeTab, setActiveTab] = useState<TabType>('videos');
 
   // Video Form State
   const [title, setTitle] = useState('');
@@ -20,16 +20,6 @@ export const AdminPage: React.FC = () => {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  // Config Form State
-  const [configForm, setConfigForm] = useState({
-    apiKey: currentConfig.apiKey || '',
-    authDomain: currentConfig.authDomain || '',
-    projectId: currentConfig.projectId || '',
-    storageBucket: currentConfig.storageBucket || '',
-    messagingSenderId: currentConfig.messagingSenderId || '',
-    appId: currentConfig.appId || ''
-  });
 
   // System State
   const [isLoading, setIsLoading] = useState(false);
@@ -204,15 +194,6 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const handleConfigSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!configForm.apiKey) {
-      setMessage({ type: 'error', text: 'API Key wajib diisi!' });
-      return;
-    }
-    saveFirebaseConfig(configForm);
-  };
-
   const sortedVideos = getSortedVideos();
 
   return (
@@ -247,11 +228,11 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
         
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium cursor-pointer hover:bg-slate-800 transition-colors ${
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium cursor-default ${
           isConfigured 
             ? 'bg-green-500/10 border-green-500/30 text-green-400' 
             : 'bg-red-500/10 border-red-500/30 text-red-400'
-        }`} onClick={() => setActiveTab('settings')}>
+        }`}>
           {isConfigured ? (
             <>
               <Cloud className="w-3 h-3" />
@@ -260,7 +241,7 @@ export const AdminPage: React.FC = () => {
           ) : (
             <>
               <CloudOff className="w-3 h-3" />
-              <span>Mode Offline (Klik untuk Setup)</span>
+              <span>Offline (Config Missing)</span>
             </>
           )}
         </div>
@@ -293,143 +274,11 @@ export const AdminPage: React.FC = () => {
           <Upload className="w-4 h-4" />
           Upload Baru
         </button>
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
-            activeTab === 'settings' 
-              ? 'bg-slate-800 text-white border-b-2 border-indigo-500' 
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-          }`}
-        >
-          <Settings className="w-4 h-4" />
-          Pengaturan Cloud
-        </button>
       </div>
 
       {/* CONTENT AREA */}
       <div className="grid grid-cols-1 gap-8">
         
-        {/* --- SETTINGS TAB --- */}
-        {activeTab === 'settings' && (
-           <div className="bg-slate-900 rounded-xl p-6 border border-slate-800 max-w-2xl mx-auto w-full animate-in fade-in zoom-in-95 duration-200">
-             <div className="flex items-center gap-3 mb-6">
-               <div className="p-3 bg-indigo-600/20 rounded-lg">
-                 <Settings className="w-6 h-6 text-indigo-500" />
-               </div>
-               <div>
-                 <h2 className="text-xl font-bold text-white">Setup Koneksi Database</h2>
-                 <p className="text-sm text-slate-400">Hubungkan aplikasi ini ke Google Firebase agar data tersimpan online.</p>
-               </div>
-             </div>
-
-             {!isConfigured ? (
-               <div className="mb-6 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-sm text-indigo-300 space-y-2">
-                 <p className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Panduan Singkat:</p>
-                 <ol className="list-decimal list-inside space-y-1 ml-1 text-indigo-200/80">
-                   <li>Buka <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="underline hover:text-white">console.firebase.google.com</a></li>
-                   <li>Buat project baru (gratis).</li>
-                   <li>Masuk ke <strong>Project Settings</strong> {'>'} <strong>General</strong>.</li>
-                   <li>Scroll ke bawah, klik icon <strong>Web ({'</>'})</strong> untuk buat app.</li>
-                   <li>Copy konfigurasi <code>firebaseConfig</code> dan paste di bawah ini.</li>
-                   <li>Jangan lupa aktifkan <strong>Authentication</strong> (Google) dan <strong>Firestore Database</strong> di console.</li>
-                 </ol>
-               </div>
-             ) : (
-                <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-400 flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5" />
-                  <div>
-                    <p className="font-bold">Terhubung ke Cloud!</p>
-                    <p className="opacity-80">Aplikasi sudah online. Data akan disinkronkan ke project Firebase Anda.</p>
-                  </div>
-                </div>
-             )}
-
-             <form onSubmit={handleConfigSave} className="space-y-4">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-slate-500 mb-1">API Key</label>
-                    <input 
-                      type="text" 
-                      value={configForm.apiKey}
-                      onChange={(e) => setConfigForm({...configForm, apiKey: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
-                      placeholder="AIzaSy..."
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Auth Domain</label>
-                    <input 
-                      type="text" 
-                      value={configForm.authDomain}
-                      onChange={(e) => setConfigForm({...configForm, authDomain: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
-                      placeholder="project-id.firebaseapp.com"
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Project ID</label>
-                    <input 
-                      type="text" 
-                      value={configForm.projectId}
-                      onChange={(e) => setConfigForm({...configForm, projectId: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
-                      placeholder="project-id"
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Storage Bucket</label>
-                    <input 
-                      type="text" 
-                      value={configForm.storageBucket}
-                      onChange={(e) => setConfigForm({...configForm, storageBucket: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
-                      placeholder="project-id.appspot.com"
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Messaging Sender ID</label>
-                    <input 
-                      type="text" 
-                      value={configForm.messagingSenderId}
-                      onChange={(e) => setConfigForm({...configForm, messagingSenderId: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
-                    />
-                 </div>
-                 <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-slate-500 mb-1">App ID</label>
-                    <input 
-                      type="text" 
-                      value={configForm.appId}
-                      onChange={(e) => setConfigForm({...configForm, appId: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm focus:border-indigo-500 outline-none"
-                    />
-                 </div>
-               </div>
-
-               <div className="pt-4 flex gap-3">
-                 <button 
-                   type="submit" 
-                   className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
-                 >
-                   <Save className="w-4 h-4" />
-                   Simpan & Koneksikan
-                 </button>
-                 {isConfigured && (
-                   <button 
-                     type="button" 
-                     onClick={resetFirebaseConfig}
-                     className="px-4 py-2.5 bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded-lg transition-colors border border-red-900/50 flex items-center gap-2"
-                     title="Putuskan koneksi dan kembali ke mode offline"
-                   >
-                     <LogOut className="w-4 h-4" />
-                     Reset
-                   </button>
-                 )}
-               </div>
-             </form>
-           </div>
-        )}
-
         {/* --- UPLOAD / EDIT TAB --- */}
         {activeTab === 'upload' && (
           <div className="max-w-2xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -447,6 +296,12 @@ export const AdminPage: React.FC = () => {
                   </>
                 )}
               </h2>
+
+              {!isConfigured && (
+                 <div className="mb-4 p-3 bg-red-900/20 border border-red-900/40 rounded text-xs text-red-300">
+                    Warning: API Key Firebase belum disetting di kode. Video hanya akan tersimpan di browser ini saja (hilang jika ganti device).
+                 </div>
+              )}
 
               {message && (
                 <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${

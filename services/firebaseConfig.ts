@@ -2,35 +2,27 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Key untuk penyimpanan konfigurasi di browser
-const LOCAL_STORAGE_KEY = 'docutube_firebase_config';
+// --- KONFIGURASI FIREBASE ---
+// TUGAS ANDA:
+// 1. Buka https://console.firebase.google.com/
+// 2. Buat Project baru atau pilih project yang ada.
+// 3. Masuk ke Project Settings -> General -> Your apps -> SDK setup and configuration.
+// 4. Pilih 'Config' (bukan CDN).
+// 5. Salin nilai-nilai tersebut ke dalam object di bawah ini.
 
-// Fungsi untuk mendapatkan config tersimpan
-const getStoredConfig = () => {
-  try {
-    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch (e) {
-    return null;
-  }
+const firebaseConfig = {
+  // Ganti string kosong "" dengan API Key asli Anda
+  apiKey: "ISI_API_KEY_ANDA_DISINI", 
+  authDomain: "ISI_PROJECT_ID_ANDA.firebaseapp.com",
+  projectId: "ISI_PROJECT_ID_ANDA",
+  storageBucket: "ISI_PROJECT_ID_ANDA.appspot.com",
+  messagingSenderId: "ISI_SENDER_ID_ANDA",
+  appId: "ISI_APP_ID_ANDA"
 };
 
-// Config default (kosong)
-const defaultConfig = {
-  apiKey: "", 
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
-};
-
-// Gunakan config dari storage jika ada, jika tidak gunakan default
-const storedConfig = getStoredConfig();
-const firebaseConfig = storedConfig || defaultConfig;
-
-// Initialize Firebase only if config is valid (has apiKey)
-const isConfigured = !!firebaseConfig.apiKey;
+// --- INITIALIZATION ---
+// Mengecek apakah config sudah diisi user atau belum
+const isConfigured = firebaseConfig.apiKey !== "ISI_API_KEY_ANDA_DISINI" && firebaseConfig.apiKey !== "";
 
 let app;
 let auth;
@@ -46,22 +38,13 @@ if (isConfigured) {
     console.log("Firebase initialized successfully");
   } catch (error) {
     console.error("Firebase init failed:", error);
-    // Jika init gagal (misal config salah), reset biar ga error terus
-    console.warn("Invalid config detected, resetting...");
   }
+} else {
+  console.warn("⚠️ PERINGATAN: API Key Firebase belum diisi di services/firebaseConfig.ts. Aplikasi berjalan dalam Mode Offline (Data tidak akan tersimpan online).");
 }
 
-// Fungsi Helper untuk menyimpan config dari UI
-export const saveFirebaseConfig = (config: any) => {
-  if (!config.apiKey) return;
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
-  window.location.reload(); // Reload halaman untuk menerapkan perubahan
-};
-
-// Fungsi Helper untuk menghapus config (Reset ke Mode Offline)
-export const resetFirebaseConfig = () => {
-  localStorage.removeItem(LOCAL_STORAGE_KEY);
-  window.location.reload();
-};
+// Tidak ada lagi fungsi save/reset dinamis karena sekarang hardcoded di file
+export const saveFirebaseConfig = () => {}; 
+export const resetFirebaseConfig = () => {};
 
 export { auth, db, googleProvider, isConfigured, firebaseConfig };
