@@ -7,22 +7,20 @@ import { getFirestore } from 'firebase/firestore';
 // =========================================================================
 
 const firebaseConfig = {
-  // API Key Anda
+  // API Key (Tetap menggunakan yang sebelumnya)
   apiKey: "AIzaSyDQqBGDvIEo90JGeRSuVsuf69QqCdNlc8I", 
   
-  // Konfigurasi Project
-  authDomain: "filmdokumenter2025-65628.firebaseapp.com",
-  projectId: "filmdokumenter2025-65628",
-  storageBucket: "filmdokumenter2025-65628.firebasestorage.app",
-  
-  // App ID sangat disarankan diisi. Jika Anda punya, ganti string kosong di bawah.
-  // Jika tidak punya, biarkan kosong (auth mungkin masih bisa jalan tanpa ini).
-  // appId: "1:914219490:web:xxxxxx" 
+  // Konfigurasi Project Baru
+  authDomain: "project-1004961982826.firebaseapp.com",
+  projectId: "project-1004961982826",
+  storageBucket: "project-1004961982826.firebasestorage.app",
+  messagingSenderId: "1004961982826",
+  appId: "1:1004961982826:web:custom_app_id_placeholder" 
 };
 
 // =========================================================================
 
-// System Check: Validasi konfigurasi minimal
+// System Check
 const isConfigured = !!firebaseConfig.projectId && 
                      !!firebaseConfig.apiKey &&
                      !firebaseConfig.projectId.includes("ISI_");
@@ -43,7 +41,7 @@ if (isConfigured) {
     console.error("❌ Firebase Error:", error);
   }
 } else {
-  console.log("⚠️ Firebase Offline: Menggunakan Mode Demo (Data Lokal)");
+  console.log("⚠️ Firebase Offline: Config Missing");
 }
 
 export { auth, db, googleProvider, isConfigured, firebaseConfig };
