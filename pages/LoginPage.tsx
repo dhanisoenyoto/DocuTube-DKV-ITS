@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, AlertCircle, ArrowRight, WifiOff, Cloud } from 'lucide-react';
+import { Lock, AlertCircle, ArrowRight, WifiOff, Cloud, HelpCircle } from 'lucide-react';
 import { loginWithGoogle } from '../services/authService';
 import { isConfigured } from '../services/firebaseConfig';
 
@@ -10,22 +10,36 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setError('');
+    setErrorCode('');
+    
     try {
       await loginWithGoogle();
       onLoginSuccess();
       navigate('/admin');
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/configuration-not-found' || err.code === 'auth/invalid-api-key') {
-         setError('Konfigurasi Firebase (Project ID/Auth Domain) salah atau belum diisi di kode.');
+      console.error("Login Error Full Object:", err);
+      
+      // Menangkap error code spesifik untuk diagnosa
+      const code = err.code || 'unknown_error';
+      setErrorCode(code);
+
+      if (code === 'auth/configuration-not-found' || code === 'auth/invalid-api-key') {
+         setError('Konfigurasi Firebase (Project ID/Auth Domain) salah.');
+      } else if (code === 'auth/popup-closed-by-user') {
+         setError('Login dibatalkan (Pop-up ditutup sebelum selesai).');
+      } else if (code === 'auth/unauthorized-domain') {
+         setError('Domain ini belum diizinkan di Firebase Console. Tambahkan URL website ini ke menu Authentication > Settings > Authorized Domains.');
+      } else if (code === 'auth/operation-not-allowed') {
+         setError('Login Google belum diaktifkan di Firebase Console (Authentication > Sign-in method).');
       } else {
-         setError(err.message || 'Login gagal. Coba lagi atau periksa koneksi internet.');
+         setError(err.message || 'Terjadi kesalahan saat menghubungi server Google.');
       }
     } finally {
       setIsLoading(false);
@@ -56,9 +70,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-3 text-red-400 animate-in slide-in-from-top-2">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <span className="text-sm">{error}</span>
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex flex-col items-start gap-2 text-red-400 animate-in slide-in-from-top-2">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <span className="text-sm font-medium">{error}</span>
+            </div>
+            {errorCode && (
+              <div className="text-xs bg-red-950/50 px-2 py-1 rounded text-red-300 font-mono ml-8 break-all">
+                Code: {errorCode}
+              </div>
+            )}
           </div>
         )}
 
@@ -67,7 +88,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <WifiOff className="w-4 h-4 shrink-0 mt-0.5" />
               <div className="text-xs">
                 <p className="font-bold mb-1">Status: Offline / Lokal</p>
-                <p>Project ID Firebase belum diatur di <code>firebaseConfig.ts</code>. Anda akan masuk sebagai "Demo User". Video hanya tersimpan di perangkat ini.</p>
+                <p>Project ID Firebase belum diatur dengan benar. Anda akan masuk sebagai "Demo User".</p>
               </div>
            </div>
         )}

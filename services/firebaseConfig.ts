@@ -7,23 +7,25 @@ import { getFirestore } from 'firebase/firestore';
 // =========================================================================
 
 const firebaseConfig = {
-  // API Key Anda (Pastikan ini dari project filmdokumenter2025-65628)
+  // API Key Anda
   apiKey: "AIzaSyDQqBGDvIEo90JGeRSuVsuf69QqCdNlc8I", 
   
-  // Konfigurasi Project (Diupdate sesuai request user)
+  // Konfigurasi Project
   authDomain: "filmdokumenter2025-65628.firebaseapp.com",
   projectId: "filmdokumenter2025-65628",
   storageBucket: "filmdokumenter2025-65628.firebasestorage.app",
-  messagingSenderId: "KOSONGKAN_TIDAK_APA2",
-  appId: "KOSONGKAN_TIDAK_APA2"
+  
+  // App ID sangat disarankan diisi. Jika Anda punya, ganti string kosong di bawah.
+  // Jika tidak punya, biarkan kosong (auth mungkin masih bisa jalan tanpa ini).
+  // appId: "1:914219490:web:xxxxxx" 
 };
 
 // =========================================================================
 
-// System Check: Validasi konfigurasi
-const isConfigured = firebaseConfig.projectId !== "GANTI_DENGAN_PROJECT_ID" && 
-                     !firebaseConfig.projectId.includes("ISI_") &&
-                     firebaseConfig.apiKey !== "";
+// System Check: Validasi konfigurasi minimal
+const isConfigured = !!firebaseConfig.projectId && 
+                     !!firebaseConfig.apiKey &&
+                     !firebaseConfig.projectId.includes("ISI_");
 
 let app;
 let auth;
