@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, AlertCircle, PlayCircle, Info, RefreshCw } from 'lucide-react';
+import { ShieldCheck, AlertCircle, PlayCircle, Info, RefreshCw, XCircle } from 'lucide-react';
 import { loginWithGoogle } from '../services/authService';
 import { isConfigured } from '../services/firebaseConfig';
 
@@ -25,45 +25,46 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       navigate('/admin');
     } catch (err: any) {
       console.error("Login Page Error Capture:", err);
-      let errorMessage = 'Gagal login dengan Google.';
+      
+      const code = err.code;
+      const message = err.message || '';
+      let friendlyMessage = 'Gagal login dengan Google.';
       let showRaw = true;
 
-      // Map Firebase Error Codes to User Friendly Messages
-      switch (err.code) {
-        case 'auth/popup-closed-by-user':
-          errorMessage = 'Login dibatalkan (popup ditutup).';
-          showRaw = false;
-          break;
-        case 'auth/cancelled-popup-request':
-          errorMessage = 'Proses dibatalkan. Mohon tunggu proses sebelumnya selesai.';
-          showRaw = false;
-          break;
-        case 'auth/popup-blocked':
-          errorMessage = 'Browser memblokir popup login. Silakan izinkan popup untuk situs ini.';
-          showRaw = false;
-          break;
-        case 'auth/unauthorized-domain':
-          errorMessage = `Domain tidak diizinkan oleh Firebase. Tambahkan "${window.location.hostname}" ke Authorized Domains di Firebase Console.`;
-          break;
-        case 'auth/operation-not-allowed':
-          errorMessage = 'Login Google belum diaktifkan di Firebase Console. (Authentication > Sign-in method > Google > Enable).';
-          break;
-        case 'auth/network-request-failed':
-          errorMessage = 'Koneksi gagal. Periksa internet Anda atau firewall.';
-          break;
-        case 'auth/invalid-api-key':
-          errorMessage = 'API Key Firebase tidak valid. Periksa konfigurasi.';
-          break;
-        default:
-          if (err.message && err.message.includes('blocked')) {
-             errorMessage = 'API Key diblokir di Google Cloud Console. Cek "API Restrictions".';
-          }
-          break;
+      // --- ERROR MAPPING LOGIC ---
+      if (code === 'auth/popup-closed-by-user') {
+        friendlyMessage = 'Login dibatalkan. Anda menutup jendela pop-up sebelum proses selesai.';
+        showRaw = false; // User action, no need for debug info
+      } 
+      else if (code === 'auth/cancelled-popup-request') {
+        friendlyMessage = 'Permintaan dibatalkan karena ada proses login lain yang sedang berjalan.';
+        showRaw = false;
+      } 
+      else if (code === 'auth/popup-blocked') {
+        friendlyMessage = 'Browser memblokir jendela login. Silakan izinkan pop-up (matikan AdBlock) untuk situs ini.';
+        showRaw = false;
+      } 
+      else if (code === 'auth/network-request-failed') {
+        friendlyMessage = 'Koneksi gagal. Periksa koneksi internet Anda atau coba lagi nanti.';
+        showRaw = false; // Usually transient network issue
+      } 
+      else if (code === 'auth/unauthorized-domain') {
+        friendlyMessage = `Domain "${window.location.hostname}" belum didaftarkan di Firebase Console.`;
+        // Config issue, keep raw error for admin debugging
+      } 
+      else if (code === 'auth/operation-not-allowed') {
+        friendlyMessage = 'Metode Login Google belum diaktifkan di Firebase Console (Authentication > Sign-in method).';
+      } 
+      else if (code === 'auth/invalid-api-key') {
+        friendlyMessage = 'Konfigurasi API Key Firebase tidak valid.';
+      }
+      else if (message.includes('blocked')) {
+         friendlyMessage = 'Akses API Key diblokir oleh Google Cloud. Cek "API Restrictions".';
       }
 
-      setError(errorMessage);
+      setError(friendlyMessage);
       if (showRaw) {
-        setDetailedError(`${err.code || 'UNKNOWN_ERROR'}: ${err.message}`);
+        setDetailedError(`${code || 'UNKNOWN_ERROR'}: ${message}`);
       }
     } finally {
       setIsLoading(false);
@@ -94,12 +95,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex flex-col gap-2 text-red-400 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <span className="text-sm font-medium leading-relaxed">{error}</span>
             </div>
             {detailedError && (
               <div className="mt-2 pt-2 border-t border-red-500/20 text-[10px] font-mono opacity-80 break-words bg-black/20 p-2 rounded select-all">
-                RAW: {detailedError}
+                RAW ERROR: {detailedError}
               </div>
             )}
           </div>
@@ -124,7 +125,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <div className="flex items-start gap-2 p-3 bg-indigo-900/20 rounded-lg border border-indigo-500/20">
             <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
             <p className="text-xs text-indigo-300 leading-relaxed">
-              Jika login gagal, pastikan Anda tidak menggunakan Mode Incognito (Private) dan izinkan popup.
+              Jika jendela login tidak muncul, pastikan Anda tidak memblokir pop-up.
             </p>
           </div>
 
