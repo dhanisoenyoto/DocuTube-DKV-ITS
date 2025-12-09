@@ -69,9 +69,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
       url: SHARE_URL,
     };
 
-    if (navigator.share) {
+    // Fix TypeScript error: navigator.share might not be in standard definitions
+    if ((navigator as any).share) {
       try {
-        await navigator.share(shareData);
+        await (navigator as any).share(shareData);
       } catch (err) {
         console.log('Error sharing:', err);
       }

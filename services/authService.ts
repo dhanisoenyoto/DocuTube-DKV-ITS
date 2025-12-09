@@ -1,5 +1,5 @@
 import { auth, googleProvider } from './firebaseConfig';
-import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, Auth } from 'firebase/auth';
 import { User } from '../types';
 
 // --- LOGIN GOOGLE ---
@@ -16,7 +16,8 @@ export const loginWithGoogle = async (): Promise<User | null> => {
     // Explicitly setting it here can sometimes cause race conditions or promise rejections
     // in certain environments, so we trust the default SDK behavior.
 
-    const result = await signInWithPopup(auth, googleProvider);
+    // Casting auth to Auth to satisfy strict TypeScript checks because we verified it above
+    const result = await signInWithPopup(auth as Auth, googleProvider);
     const fbUser = result.user;
     
     console.log("Login Successful:", fbUser.email);
@@ -41,7 +42,7 @@ export const loginWithGoogle = async (): Promise<User | null> => {
 export const logout = async () => {
   if (auth) {
     try {
-      await signOut(auth);
+      await signOut(auth as Auth);
       console.log("User signed out");
     } catch (error) {
       console.error("Logout failed:", error);
@@ -75,7 +76,7 @@ export const subscribeToAuthChanges = (callback: (user: User | null) => void) =>
     return () => {};
   }
 
-  const unsubscribe = onAuthStateChanged(auth, (fbUser: FirebaseUser | null) => {
+  const unsubscribe = onAuthStateChanged(auth as Auth, (fbUser: FirebaseUser | null) => {
     if (fbUser) {
       const appUser: User = {
         uid: fbUser.uid,
