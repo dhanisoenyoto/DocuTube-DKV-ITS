@@ -1,30 +1,44 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Lock, User, AlertCircle } from 'lucide-react';
-import { loginWithCredentials } from '../services/authService';
-import { isConfigured, firebaseConfig } from '../services/firebaseConfig';
+import { ShieldCheck, AlertCircle, PlayCircle } from 'lucide-react';
+import { loginWithGoogle } from '../services/authService';
+import { isConfigured } from '../services/firebaseConfig';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     setError('');
+    setIsLoading(true);
     
-    const success = loginWithCredentials(username, password);
-    
-    if (success) {
+    try {
+      await loginWithGoogle();
       onLoginSuccess();
       navigate('/admin');
-    } else {
-      setError('Username atau password salah.');
+    } catch (err: any) {
+      console.error(err);
+      let errorMessage = 'Gagal login dengan Google.';
+      
+      // Error Handling Spesifik Firebase
+      if (err.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Login dibatalkan (popup ditutup).';
+      } else if (err.code === 'auth/unauthorized-domain') {
+        errorMessage = `Domain ini (${window.location.hostname}) belum diizinkan di Firebase Console > Auth > Settings > Authorized Domains.`;
+      } else if (err.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Login Google belum diaktifkan di Firebase Console.';
+      } else if (err.message && err.message.includes('blocked')) {
+        errorMessage = 'API Key diblokir di Google Cloud Console. Harap set API Restrictions ke "None" atau izinkan "Identity Toolkit API".';
+      }
+
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -34,69 +48,57 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         
         {/* Status Database */}
         <div className={`absolute top-0 left-0 w-full py-1 text-[10px] font-bold text-center tracking-widest uppercase ${
-            isConfigured ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+            isConfigured ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
         }`}>
-            {isConfigured ? 'Database: Online' : 'Database: Offline (Local)'}
+            {isConfigured ? 'System: Online' : 'System: Config Error'}
         </div>
 
         <div className="text-center mb-8 mt-6">
           <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-700">
             <ShieldCheck className="w-8 h-8 text-indigo-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Admin Login</h1>
+          <h1 className="text-2xl font-bold text-white">Login Kontributor</h1>
           <p className="text-slate-400 mt-2 text-sm">
-            Silakan masuk untuk mengelola galeri video.
+            Masuk dengan akun Google untuk mengunggah atau mengedit karya film.
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-400">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <span className="text-sm">{error}</span>
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 text-red-400">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <span className="text-xs leading-relaxed">{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Username</label>
-            <div className="relative">
-              <User className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
-              <input 
-                type="text" 
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder-slate-600"
-                placeholder="Masukkan username"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder-slate-600"
-                placeholder="Masukkan password"
-                required
-              />
-            </div>
-          </div>
-
+        <div className="space-y-4">
           <button 
-            type="submit"
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-500/20 transition-all mt-4 active:scale-[0.98]"
+            onClick={handleGoogleLogin}
+            disabled={isLoading || !isConfigured}
+            className="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group"
           >
-            Masuk Dashboard
+            {isLoading ? (
+               <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                <span>Sign in with Google</span>
+              </>
+            )}
           </button>
-        </form>
           
-        <div className="text-center text-xs text-slate-600 mt-8">
-          <p>DocuTube DKV ITS &copy; 2025</p>
+          {!isConfigured && (
+             <p className="text-center text-xs text-red-400 mt-2">
+               Konfigurasi Firebase belum lengkap. Hubungi administrator.
+             </p>
+          )}
+        </div>
+          
+        <div className="text-center text-xs text-slate-600 mt-8 border-t border-slate-800 pt-6">
+           <div className="flex items-center justify-center gap-2 mb-2">
+             <PlayCircle className="w-3 h-3" />
+             <span>DocuTube DKV ITS 2025</span>
+           </div>
+           <p>Platform Screening & Arsip Digital</p>
         </div>
       </div>
     </div>

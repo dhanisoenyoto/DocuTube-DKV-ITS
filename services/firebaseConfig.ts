@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 // =========================================================================
 // KONFIGURASI FIREBASE DOCUTUBE DKV ITS
@@ -7,7 +8,7 @@ import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDqkIXntNeclWgY-XSaH8U7hVroG-Gjrek",
-  authDomain: "filmdokumenter2025-65628.firebaseapp.com",
+  authDomain: "filmdokumenter2025-65628.firebaseapp.com", // Gunakan default dulu agar stabil
   projectId: "filmdokumenter2025-65628",
   storageBucket: "filmdokumenter2025-65628.firebasestorage.app",
   messagingSenderId: "1004961982826",
@@ -18,28 +19,25 @@ const firebaseConfig = {
 // =========================================================================
 
 // System Check
-const isConfigured = !!firebaseConfig.projectId && 
-                     !!firebaseConfig.apiKey;
+const isConfigured = !!firebaseConfig.projectId && !!firebaseConfig.apiKey;
 
 let app;
 let db;
-
-// PENTING: Kita TIDAK menginisialisasi 'auth' (getAuth) di sini.
-// Mengapa? Karena API Key Anda memblokir akses ke Identity Toolkit (Auth),
-// yang menyebabkan error 'requests-to-this-api... are blocked'.
-// Karena kita menggunakan login manual (superadmin), kita hanya butuh 'db' (Firestore).
+let auth;
+let googleProvider;
 
 if (isConfigured) {
   try {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-    console.log("✅ Firebase Database Connected");
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+    console.log("✅ Firebase Connected: Database & Auth Active");
   } catch (error) {
     console.error("❌ Firebase Init Error:", error);
   }
 } else {
-  console.log("⚠️ Firebase Offline: Config Missing");
+  console.log("⚠️ Firebase Config Missing");
 }
 
-// Export db saja, tanpa auth
-export { db, isConfigured, firebaseConfig };
+export { db, auth, googleProvider, isConfigured, firebaseConfig };
