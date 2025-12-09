@@ -1,100 +1,65 @@
-import { auth, googleProvider, isConfigured } from './firebaseConfig';
-import { signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { User } from '../types';
 
-// State to track current user
-let currentUser: User | null = null;
-const LOCAL_AUTH_KEY = 'docutube_user_session';
+// Hardcoded Admin Credentials
+const ADMIN_CREDENTIALS = {
+  username: 'superadmin',
+  password: '123456'
+};
 
-// Helper to map Firebase User to our User type
-const mapUser = (user: FirebaseUser): User => ({
-  uid: user.uid,
-  displayName: user.displayName,
-  email: user.email,
-  photoURL: user.photoURL
-});
+const ADMIN_USER: User = {
+  uid: 'superadmin-local-id',
+  displayName: 'Super Admin',
+  email: 'admin@docutube.its.ac.id',
+  photoURL: null
+};
 
-// --- GOOGLE LOGIN (PRIMARY) ---
-export const loginWithGoogle = async (): Promise<User | null> => {
-  if (!isConfigured || !auth || !googleProvider) {
-    throw new Error('Konfigurasi Firebase tidak valid atau belum dimuat.');
+const SESSION_KEY = 'docutube_admin_session';
+
+// --- LOGIN MANUAL ---
+export const loginWithCredentials = (username: string, pass: string): boolean => {
+  if (username === ADMIN_CREDENTIALS.username && pass === ADMIN_CREDENTIALS.password) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(ADMIN_USER));
+    return true;
   }
-
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    currentUser = mapUser(result.user);
-    // Simpan copy sesi di local storage untuk akses cepat saat refresh (optional)
-    localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(currentUser));
-    return currentUser;
-  } catch (error: any) {
-    console.error("Login failed", error);
-    // Lempar error asli agar bisa ditangkap di UI (untuk debugging authorized domain)
-    throw error;
-  }
+  return false;
 };
 
 // --- LOGOUT ---
-export const logout = async (): Promise<void> => {
-  localStorage.removeItem(LOCAL_AUTH_KEY);
-  
-  if (isConfigured && auth) {
-    try {
-      await firebaseSignOut(auth);
-    } catch (e) {
-      console.warn("Firebase signout error", e);
-    }
-  }
-  
-  currentUser = null;
+export const logout = () => {
+  localStorage.removeItem(SESSION_KEY);
+  // Trigger event storage agar UI update di tab lain (opsional)
+  window.dispatchEvent(new Event('storage'));
 };
 
-// --- GET CURRENT USER ---
+// --- CEK USER SAAT INI ---
 export const getCurrentUser = (): User | null => {
-  // 1. Cek Firebase SDK (Paling akurat)
-  if (isConfigured && auth?.currentUser) {
-    return mapUser(auth.currentUser);
-  }
-
-  // 2. Cek variabel memori
-  if (currentUser) return currentUser;
-
-  // 3. Fallback LocalStorage (Hanya jika firebase belum init)
-  const localSession = localStorage.getItem(LOCAL_AUTH_KEY);
-  if (localSession) {
-    return JSON.parse(localSession);
-  }
-
-  return null;
+  const session = localStorage.getItem(SESSION_KEY);
+  return session ? JSON.parse(session) : null;
 };
 
-// --- CHECK AUTH STATUS ---
+// --- CEK STATUS AUTH ---
 export const isAuthenticated = (): boolean => {
   return !!getCurrentUser();
 };
 
-// --- AUTH LISTENER ---
+// --- LISTENER PERUBAHAN AUTH ---
 export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
-  // Panggil callback segera dengan state saat ini
+  // 1. Panggil saat inisialisasi
   callback(getCurrentUser());
 
-  let unsubscribeFirebase = () => {};
-  
-  if (isConfigured && auth) {
-    unsubscribeFirebase = onAuthStateChanged(auth, (user) => {
-      const mapped = user ? mapUser(user) : null;
-      currentUser = mapped;
-      
-      if (mapped) {
-        localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(mapped));
-      } else {
-        localStorage.removeItem(LOCAL_AUTH_KEY);
-      }
-      
-      callback(mapped);
-    });
-  }
+  // 2. Listener untuk perubahan storage (login/logout dari tab lain)
+  const handleStorageChange = () => {
+    callback(getCurrentUser());
+  };
 
+  window.addEventListener('storage', handleStorageChange);
+  
+  // Custom event untuk login/logout di tab yang sama
+  // Kita bisa memodifikasi fungsi login/logout untuk dispatch event, 
+  // atau cukup polling sederhana/re-render di React. 
+  // Di React App.tsx biasanya kita memanggil isAuthenticated() secara reaktif.
+  
   return () => {
-    unsubscribeFirebase();
+    window.removeEventListener('storage', handleStorageChange);
   };
 };

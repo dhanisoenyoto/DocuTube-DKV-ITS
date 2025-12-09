@@ -1,5 +1,4 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // =========================================================================
@@ -23,22 +22,22 @@ const isConfigured = !!firebaseConfig.projectId &&
                      !!firebaseConfig.apiKey;
 
 let app;
-let auth;
 let db;
-let googleProvider;
+
+// Kita hanya menginisialisasi Firestore (Database).
+// Authentication kita handle manual via kode (Superadmin) untuk menghindari
+// error domain/CORS yang sering terjadi pada Google Auth di environment berbeda.
 
 if (isConfigured) {
   try {
     app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
     db = getFirestore(app);
-    googleProvider = new GoogleAuthProvider();
-    console.log("✅ Firebase Online: Connected to", firebaseConfig.projectId);
+    console.log("✅ Firebase Connected: Database Only Mode");
   } catch (error) {
-    console.error("❌ Firebase Error:", error);
+    console.error("❌ Firebase Init Error:", error);
   }
 } else {
   console.log("⚠️ Firebase Offline: Config Missing");
 }
 
-export { auth, db, googleProvider, isConfigured, firebaseConfig };
+export { db, isConfigured, firebaseConfig };
