@@ -5,14 +5,23 @@ import { User } from '../types';
 // --- LOGIN GOOGLE ---
 export const loginWithGoogle = async (): Promise<User | null> => {
   if (!auth || !googleProvider) {
-    throw new Error("Layanan Auth belum siap. Periksa konfigurasi Firebase.");
+    console.error("Auth Service Error: Auth or Provider is undefined. Check firebaseConfig.");
+    throw new Error("Layanan Autentikasi belum siap. Silakan refresh halaman dan coba lagi.");
   }
 
   try {
+    console.log("Initiating Google Sign-In...");
+    
+    // Note: We rely on the default Firebase persistence (browserLocalPersistence).
+    // Explicitly setting it here can sometimes cause race conditions or promise rejections
+    // in certain environments, so we trust the default SDK behavior.
+
     const result = await signInWithPopup(auth, googleProvider);
     const fbUser = result.user;
     
-    // Mapping Firebase User ke App User Type
+    console.log("Login Successful:", fbUser.email);
+
+    // Map Firebase User to App User
     const appUser: User = {
       uid: fbUser.uid,
       displayName: fbUser.displayName,
@@ -22,7 +31,8 @@ export const loginWithGoogle = async (): Promise<User | null> => {
     
     return appUser;
   } catch (error: any) {
-    console.error("Login Error:", error);
+    console.error("Google Sign-In Error:", error);
+    // Rethrow to be handled by the UI
     throw error;
   }
 };
@@ -30,11 +40,16 @@ export const loginWithGoogle = async (): Promise<User | null> => {
 // --- LOGOUT ---
 export const logout = async () => {
   if (auth) {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+      console.log("User signed out");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   }
 };
 
-// --- CEK USER SAAT INI (Synchronous - hanya snapshot terakhir) ---
+// --- GET CURRENT USER (Snapshot) ---
 export const getCurrentUser = (): User | null => {
   if (!auth?.currentUser) return null;
   const fbUser = auth.currentUser;
@@ -46,14 +61,16 @@ export const getCurrentUser = (): User | null => {
   };
 };
 
-// --- CEK STATUS AUTH ---
+// --- CHECK AUTH STATUS ---
 export const isAuthenticated = (): boolean => {
   return !!auth?.currentUser;
 };
 
-// --- LISTENER PERUBAHAN AUTH (Realtime) ---
+// --- AUTH STATE LISTENER ---
 export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   if (!auth) {
+    // If auth isn't initialized, we can't subscribe. 
+    // Return a dummy unsubscribe function.
     callback(null);
     return () => {};
   }

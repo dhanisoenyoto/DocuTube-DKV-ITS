@@ -30,29 +30,34 @@ let analytics;
 
 if (isConfigured) {
   try {
-    // SINGLETON PATTERN: Cek apakah app sudah ada sebelum inisialisasi
-    // Ini mencegah error "Firebase App named '[DEFAULT]' already exists" saat hot-reload
+    // SINGLETON PATTERN: Prevent "App already exists" error during hot-reload
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
     } else {
-      app = getApp(); // Gunakan instance yang sudah ada
+      app = getApp();
     }
 
     db = getFirestore(app);
     auth = getAuth(app);
-    googleProvider = new GoogleAuthProvider();
     
-    // Analytics (Optional)
+    // Set up Google Provider
+    googleProvider = new GoogleAuthProvider();
+    googleProvider.addScope('profile');
+    googleProvider.addScope('email');
+    
+    // Use device language for auth flow
+    auth.useDeviceLanguage();
+    
+    // Analytics (Optional, handle fail gracefully)
     if (typeof window !== 'undefined') {
       try {
         analytics = getAnalytics(app);
       } catch (e) {
-        // Analytics sering diblokir oleh adblocker, jangan biarkan ini menghentikan aplikasi
-        console.warn("Analytics init skipped:", e);
+        console.warn("Analytics init skipped (likely blocked by client):", e);
       }
     }
     
-    console.log("✅ Firebase Connected: Database & Auth Active");
+    console.log("✅ Firebase Connected");
   } catch (error) {
     console.error("❌ Firebase Init Error:", error);
   }
