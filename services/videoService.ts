@@ -88,6 +88,13 @@ export const saveVideo = async (video: VideoItem): Promise<void> => {
       const { id, ...videoData } = video;
       // Sanitize to remove any 'undefined' values which cause Firestore to crash
       const safeData = sanitizeData(videoData);
+      
+      // Safety Check: Firestore Limit is 1MB (approx 1,048,576 bytes)
+      // Base64 string length roughly represents size in bytes (a bit more)
+      if (video.thumbnailUrl && video.thumbnailUrl.length > 950000) {
+        throw new Error("Ukuran gambar thumbnail terlalu besar meskipun sudah dikompres. Coba gunakan gambar lain yang lebih kecil.");
+      }
+
       await addDoc(collection(db, COLLECTION_NAME), safeData);
       return;
     } catch (e) {
@@ -111,6 +118,11 @@ export const updateVideo = async (updatedVideo: VideoItem): Promise<void> => {
       const { id, ratings, comments, ...data } = updatedVideo;
       // Sanitize data
       const safeData = sanitizeData(data);
+
+      if (updatedVideo.thumbnailUrl && updatedVideo.thumbnailUrl.length > 950000) {
+        throw new Error("Ukuran gambar thumbnail terlalu besar.");
+      }
+
       await updateDoc(videoRef, safeData);
       return;
     } catch (e) {
@@ -231,10 +243,14 @@ export const parseDriveLink = (link: string): string | null => {
   return null;
 };
 
-// Modified fileToBase64 to include IMAGE COMPRESSION
-// Firestore has a 1MB limit per document. We must compress images to ensure they fit.
+// IMPROVED IMAGE COMPRESSION
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
+    // Timeout safeguard: If processing takes > 10 seconds, reject.
+    const timeoutId = setTimeout(() => {
+      reject(new Error("Waktu habis saat memproses gambar. Coba gambar lain atau format berbeda (JPG/PNG)."));
+    }, 10000);
+
     const reader = new FileReader();
     reader.readAsDataURL(file);
     
@@ -243,38 +259,51 @@ export const fileToBase64 = (file: File): Promise<string> => {
       img.src = event.target?.result as string;
       
       img.onload = () => {
-        // Create a canvas to resize/compress the image
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800; // Resize to max width 800px
-        const scaleSize = MAX_WIDTH / img.width;
-        
-        // Calculate new dimensions
-        if (scaleSize < 1) {
-            canvas.width = MAX_WIDTH;
-            canvas.height = img.height * scaleSize;
-        } else {
-            canvas.width = img.width;
-            canvas.height = img.height;
-        }
+        try {
+          // Create a canvas to resize/compress the image
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; // Resize to max width 800px
+          const scaleSize = MAX_WIDTH / img.width;
+          
+          // Calculate new dimensions
+          if (scaleSize < 1) {
+              canvas.width = MAX_WIDTH;
+              canvas.height = img.height * scaleSize;
+          } else {
+              canvas.width = img.width;
+              canvas.height = img.height;
+          }
 
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-            reject(new Error("Could not get canvas context"));
-            return;
-        }
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+              clearTimeout(timeoutId);
+              reject(new Error("Browser tidak mendukung canvas context"));
+              return;
+          }
 
-        // Draw image to canvas
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        // Convert to Base64 JPEG with 0.7 quality (Good compression)
-        // This dramatically reduces file size from MBs to KBs
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(compressedBase64);
+          // Draw image to canvas
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Convert to Base64 JPEG with 0.6 quality (More aggressive compression)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+          
+          clearTimeout(timeoutId);
+          resolve(compressedBase64);
+        } catch (err) {
+          clearTimeout(timeoutId);
+          reject(err);
+        }
       };
       
-      img.onerror = (error) => reject(error);
+      img.onerror = (error) => {
+        clearTimeout(timeoutId);
+        reject(new Error("File gambar rusak atau format tidak didukung browser."));
+      };
     };
     
-    reader.onerror = (error) => reject(error);
+    reader.onerror = (error) => {
+      clearTimeout(timeoutId);
+      reject(new Error("Gagal membaca file."));
+    };
   });
 };

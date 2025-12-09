@@ -23,6 +23,7 @@ export const AdminPage: React.FC = () => {
 
   // System State
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState<string>(''); // NEW: Detailed Status
   const [isFetching, setIsFetching] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]);
@@ -64,6 +65,13 @@ export const AdminPage: React.FC = () => {
   const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // Basic size check (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Ukuran file terlalu besar (>5MB). Mohon pilih gambar lain.");
+        return;
+      }
+
       setThumbnailFile(file);
       
       const reader = new FileReader();
@@ -104,6 +112,7 @@ export const AdminPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setLoadingStatus('Memeriksa data...'); // STEP 1
     setMessage(null);
 
     try {
@@ -118,8 +127,13 @@ export const AdminPage: React.FC = () => {
 
       let base64Thumbnail = thumbnailPreview || '';
       if (thumbnailFile) {
+        setLoadingStatus('Mengompres gambar...'); // STEP 2
+        // Delay slightly so UI updates
+        await new Promise(r => setTimeout(r, 100));
         base64Thumbnail = await fileToBase64(thumbnailFile);
       }
+
+      setLoadingStatus('Menghubungkan ke database...'); // STEP 3
 
       if (editingId) {
         const originalVideo = existingVideos.find(v => v.id === editingId);
@@ -153,12 +167,11 @@ export const AdminPage: React.FC = () => {
           uploadedBy: currentUser ? {
             uid: currentUser.uid,
             name: currentUser.displayName || 'Unknown',
-            // Use spread condition to safely add photoURL only if it exists
-            // This prevents adding 'undefined' which causes Firestore crashes
             ...(currentUser.photoURL ? { photoURL: currentUser.photoURL } : {})
           } : undefined
         };
 
+        setLoadingStatus('Menyimpan data...'); // STEP 4
         await saveVideo(newVideo);
         setTitle('');
         setLink('');
@@ -166,10 +179,10 @@ export const AdminPage: React.FC = () => {
         clearThumbnail();
         setMessage({ type: 'success', text: 'Video berhasil ditambahkan ke galeri!' });
         
-        // Pindah ke tab list setelah upload sukses
         setTimeout(() => setActiveTab('videos'), 1500);
       }
 
+      setLoadingStatus('Memuat ulang daftar...'); // STEP 5
       await refreshVideos();
       
     } catch (err: any) {
@@ -177,6 +190,7 @@ export const AdminPage: React.FC = () => {
       setMessage({ type: 'error', text: err.message || 'Terjadi kesalahan saat menyimpan.' });
     } finally {
       setIsLoading(false);
+      setLoadingStatus('');
     }
   };
 
@@ -398,7 +412,10 @@ export const AdminPage: React.FC = () => {
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isLoading ? (
-                      <>Processing...</>
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="text-sm font-medium">{loadingStatus || 'Processing...'}</span>
+                      </div>
                     ) : (
                       <>
                         {editingId ? <Edit2 className="w-5 h-5" /> : <Upload className="w-5 h-5" />}
