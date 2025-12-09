@@ -1,6 +1,5 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
 
 // =========================================================================
 // KONFIGURASI FIREBASE DOCUTUBE DKV ITS
@@ -24,17 +23,17 @@ const isConfigured = !!firebaseConfig.projectId &&
 
 let app;
 let db;
-let auth;
 
-// Kita hanya menginisialisasi Firestore (Database) dan Auth.
-// Namun, Login tetap manual (superadmin) di authService.ts kecuali diubah.
+// PENTING: Kita TIDAK menginisialisasi 'auth' (getAuth) di sini.
+// Mengapa? Karena API Key Anda memblokir akses ke Identity Toolkit (Auth),
+// yang menyebabkan error 'requests-to-this-api... are blocked'.
+// Karena kita menggunakan login manual (superadmin), kita hanya butuh 'db' (Firestore).
 
 if (isConfigured) {
   try {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-    auth = getAuth(app);
-    console.log("✅ Firebase Connected");
+    console.log("✅ Firebase Database Connected");
   } catch (error) {
     console.error("❌ Firebase Init Error:", error);
   }
@@ -42,4 +41,5 @@ if (isConfigured) {
   console.log("⚠️ Firebase Offline: Config Missing");
 }
 
-export { db, auth, isConfigured, firebaseConfig };
+// Export db saja, tanpa auth
+export { db, isConfigured, firebaseConfig };
