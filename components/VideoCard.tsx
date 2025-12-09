@@ -29,6 +29,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     day: 'numeric'
   });
 
+  // PRODUCTION DOMAIN
+  const SHARE_URL = 'https://dokumenter2025.online/';
+
   const handleRate = async (rating: number) => {
     if (hasRated) return;
     setHasRated(true);
@@ -54,7 +57,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
   };
 
   const handleWhatsAppShare = () => {
-    const text = `Nonton Film Dokumenter: "${video.title}"\n\n"${video.caption.substring(0, 150)}..."\n\nTonton selengkapnya di DocuTube DKV ITS: ${window.location.href}`;
+    const text = `Nonton Film Dokumenter: "${video.title}"\n\n"${video.caption.substring(0, 150)}..."\n\nTonton selengkapnya di DocuTube DKV ITS: ${SHARE_URL}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -63,7 +66,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     const shareData = {
       title: `DocuTube: ${video.title}`,
       text: `Nonton film dokumenter "${video.title}" karya mahasiswa DKV ITS.\n\n${video.caption}`,
-      url: window.location.href,
+      url: SHARE_URL,
     };
 
     if (navigator.share) {

@@ -27,11 +27,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       
       // Error Handling Spesifik untuk User
       if (err.code === 'auth/unauthorized-domain') {
-        errorMessage = `Domain ini belum diizinkan di Firebase Console. Tambahkan domain website ini ke menu Authentication > Settings > Authorized Domains di Project: ${firebaseConfig.projectId}`;
+        errorMessage = `Domain ini belum diizinkan. Mohon tambahkan "dokumenter2025.online" ke menu Authentication > Settings > Authorized Domains di Project Firebase: ${firebaseConfig.projectId}`;
       } else if (err.code === 'auth/popup-closed-by-user') {
         errorMessage = 'Login dibatalkan oleh pengguna.';
       } else if (err.code === 'auth/operation-not-allowed') {
         errorMessage = 'Login Google belum diaktifkan di Firebase Console. Masuk ke Authentication > Sign-in method > Enable Google.';
+      } else if (err.code === 'auth/identity-toolkit-api-has-not-been-used-in-project' || err.message.includes('identity-toolkit')) {
+        errorMessage = 'API Identity Toolkit belum aktif. Buka Google Cloud Console untuk project ini dan Enable "Identity Toolkit API".';
       } else if (err.message) {
         errorMessage = err.message;
       }
