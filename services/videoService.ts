@@ -53,6 +53,12 @@ const saveLocalVideos = (videos: VideoItem[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(videos));
 };
 
+// --- HELPER: Sanitize Data for Firestore ---
+// Firestore rejects 'undefined', so we convert object to JSON and back to remove undefined keys
+const sanitizeData = (data: any) => {
+  return JSON.parse(JSON.stringify(data));
+};
+
 // --- MAIN SERVICE FUNCTIONS (Async) ---
 
 export const getVideos = async (): Promise<VideoItem[]> => {
@@ -78,9 +84,11 @@ export const getVideos = async (): Promise<VideoItem[]> => {
 export const saveVideo = async (video: VideoItem): Promise<void> => {
   if (isConfigured && db) {
     try {
-      // Remove ID because Firestore generates it, or use setDoc if we want specific ID
+      // Remove ID because Firestore generates it
       const { id, ...videoData } = video;
-      await addDoc(collection(db, COLLECTION_NAME), videoData);
+      // Sanitize to remove any 'undefined' values which cause Firestore to crash
+      const safeData = sanitizeData(videoData);
+      await addDoc(collection(db, COLLECTION_NAME), safeData);
       return;
     } catch (e) {
       console.error("Firebase save failed", e);
@@ -101,7 +109,9 @@ export const updateVideo = async (updatedVideo: VideoItem): Promise<void> => {
       // IMPORTANT: When updating video details (Edit), we exclude ratings/comments arrays 
       // from the update payload to avoid overwriting concurrent atomic updates from other users.
       const { id, ratings, comments, ...data } = updatedVideo;
-      await updateDoc(videoRef, data as any);
+      // Sanitize data
+      const safeData = sanitizeData(data);
+      await updateDoc(videoRef, safeData);
       return;
     } catch (e) {
       console.error("Firebase update failed", e);

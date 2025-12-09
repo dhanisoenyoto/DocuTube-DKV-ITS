@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 // =========================================================================
 // KONFIGURASI FIREBASE DOCUTUBE DKV ITS
@@ -23,16 +24,17 @@ const isConfigured = !!firebaseConfig.projectId &&
 
 let app;
 let db;
+let auth;
 
-// Kita hanya menginisialisasi Firestore (Database).
-// Authentication kita handle manual via kode (Superadmin) untuk menghindari
-// error domain/CORS yang sering terjadi pada Google Auth di environment berbeda.
+// Kita hanya menginisialisasi Firestore (Database) dan Auth.
+// Namun, Login tetap manual (superadmin) di authService.ts kecuali diubah.
 
 if (isConfigured) {
   try {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-    console.log("✅ Firebase Connected: Database Only Mode");
+    auth = getAuth(app);
+    console.log("✅ Firebase Connected");
   } catch (error) {
     console.error("❌ Firebase Init Error:", error);
   }
@@ -40,4 +42,4 @@ if (isConfigured) {
   console.log("⚠️ Firebase Offline: Config Missing");
 }
 
-export { db, isConfigured, firebaseConfig };
+export { db, auth, isConfigured, firebaseConfig };

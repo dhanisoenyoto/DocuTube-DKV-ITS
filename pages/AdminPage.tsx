@@ -153,7 +153,9 @@ export const AdminPage: React.FC = () => {
           uploadedBy: currentUser ? {
             uid: currentUser.uid,
             name: currentUser.displayName || 'Unknown',
-            photoURL: currentUser.photoURL || undefined
+            // Use spread condition to safely add photoURL only if it exists
+            // This prevents adding 'undefined' which causes Firestore crashes
+            ...(currentUser.photoURL ? { photoURL: currentUser.photoURL } : {})
           } : undefined
         };
 
@@ -296,12 +298,6 @@ export const AdminPage: React.FC = () => {
                   </>
                 )}
               </h2>
-
-              {!isConfigured && (
-                 <div className="mb-4 p-3 bg-red-900/20 border border-red-900/40 rounded text-xs text-red-300">
-                    Warning: API Key Firebase belum disetting di kode. Video hanya akan tersimpan di browser ini saja (hilang jika ganti device).
-                 </div>
-              )}
 
               {message && (
                 <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
