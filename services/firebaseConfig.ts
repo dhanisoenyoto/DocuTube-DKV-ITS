@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
@@ -30,17 +30,25 @@ let analytics;
 
 if (isConfigured) {
   try {
-    app = initializeApp(firebaseConfig);
+    // SINGLETON PATTERN: Cek apakah app sudah ada sebelum inisialisasi
+    // Ini mencegah error "Firebase App named '[DEFAULT]' already exists" saat hot-reload
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApp(); // Gunakan instance yang sudah ada
+    }
+
     db = getFirestore(app);
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
     
-    // Analytics is optional but good to have since config was provided
+    // Analytics (Optional)
     if (typeof window !== 'undefined') {
       try {
         analytics = getAnalytics(app);
       } catch (e) {
-        console.warn("Analytics failed to load (likely adblocker or restricted env):", e);
+        // Analytics sering diblokir oleh adblocker, jangan biarkan ini menghentikan aplikasi
+        console.warn("Analytics init skipped:", e);
       }
     }
     
