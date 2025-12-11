@@ -1,3 +1,4 @@
+
 import { VideoItem, Comment, Lecturer } from '../types';
 import { db, isConfigured } from './firebaseConfig';
 import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment } from 'firebase/firestore';

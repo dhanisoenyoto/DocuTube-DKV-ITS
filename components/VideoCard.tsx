@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { VideoItem } from '../types';
-import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Edit, User as UserIcon, Eye, ThumbsUp, Heart, Smile, Frown, Zap } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { VideoItem, VisitorAvatar } from '../types';
+import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Edit, User as UserIcon, Eye, ThumbsUp, Heart, Smile, Frown, Zap, Users } from 'lucide-react';
 import { addRating, addComment, getAverageRating, incrementViewCount } from '../services/videoService';
 import { getCurrentUser } from '../services/authService';
+import { getVisitorId, generateAvatar, generateCrowd } from '../services/avatarService';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -28,11 +30,14 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
   const [userRating, setUserRating] = useState<number>(0); 
   const [hasRated, setHasRated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Avatar State
+  const [myAvatar, setMyAvatar] = useState<VisitorAvatar | null>(null);
+  const [crowd, setCrowd] = useState<VisitorAvatar[]>([]);
 
   const avgRating = getAverageRating(video.ratings || []);
   const ratingCount = video.ratings?.length || 0;
   const comments = video.comments || [];
-  // Get latest comment
   const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
 
   const formattedDate = new Date(video.createdAt).toLocaleDateString('id-ID', {
@@ -43,28 +48,33 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
 
   const SHARE_URL = 'https://dokumenter2025.online/';
 
+  // Init Avatar when component mounts
+  useEffect(() => {
+    const visitorId = getVisitorId();
+    setMyAvatar(generateAvatar(visitorId));
+  }, []);
+
+  // Init Crowd when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      // Simulate other viewers based on total view count
+      setCrowd(generateCrowd(video.id, video.viewCount || 5));
+    }
+  }, [isOpen, video.id, video.viewCount]);
+
   const handleOpen = () => {
     setIsOpen(true);
     
-    // --- UNIQUE VIEW LOGIC ---
-    // Gunakan LocalStorage untuk menandai video yang sudah ditonton di device ini.
-    // Key: 'viewed_videos_list' -> Value: Array of IDs ['vid1', 'vid2']
     const STORAGE_KEY = 'viewed_videos_list';
-    
     try {
       const viewedList = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      
-      // Jika ID video ini BELUM ada di list, maka hitung sebagai view baru
       if (!viewedList.includes(video.id)) {
         incrementViewCount(video.id).then(() => {
-          // Update local storage
           const newList = [...viewedList, video.id];
           localStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
-          
-          if (onUpdate) onUpdate(); // Update UI to show new view count
+          if (onUpdate) onUpdate(); 
         });
       }
-      // Jika SUDAH ada, jangan lakukan apa-apa (tidak menambah view count)
     } catch (e) {
       console.error("Error accessing local storage for views", e);
     }
@@ -84,7 +94,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     
     setIsSubmitting(true);
     const currentUser = getCurrentUser();
-    const userName = currentUser?.displayName || 'Pengunjung';
+    // Use Google Name OR the Avatar Label if anonymous
+    const userName = currentUser?.displayName || (myAvatar ? myAvatar.label : 'Pengunjung');
 
     await addComment(video.id, newComment, userName, selectedReaction);
     setNewComment('');
@@ -207,11 +218,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                   <Clock className="w-3 h-3" />
                   <span>{formattedDate}</span>
                 </div>
-                {video.uploadedBy && (
-                  <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-                    <UserIcon className="w-3 h-3" />
-                    <span className="truncate max-w-[80px]">{video.uploadedBy.name.split(' ')[0]}</span>
-                  </div>
+                {/* Micro Avatar Indicator */}
+                {myAvatar && (
+                   <div className="text-[10px] text-slate-600 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Menonton sebagai {myAvatar.emoji}
+                   </div>
                 )}
              </div>
           </div>
@@ -246,6 +257,40 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                 </div>
 
                 <div className="p-6 md:p-8 space-y-8 pb-12">
+                   {/* Crowd & Identity Section (NEW) */}
+                   <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                      {/* My Avatar */}
+                      {myAvatar && (
+                        <div className="flex items-center gap-3">
+                           <div className={`w-10 h-10 rounded-full ${myAvatar.bgClass} flex items-center justify-center text-xl shadow-lg border-2 border-slate-700`}>
+                              {myAvatar.emoji}
+                           </div>
+                           <div className="flex flex-col">
+                              <span className="text-xs text-slate-400 uppercase tracking-wide">Anda menonton sebagai</span>
+                              <span className="text-sm font-bold text-white">{myAvatar.label}</span>
+                           </div>
+                        </div>
+                      )}
+
+                      {/* Other Viewers (Simulated Crowd) */}
+                      <div className="flex items-center gap-2">
+                         <div className="flex -space-x-2 overflow-hidden px-2">
+                            {crowd.map((visitor) => (
+                               <div 
+                                  key={visitor.id} 
+                                  className={`w-8 h-8 rounded-full ${visitor.bgClass} flex items-center justify-center text-sm shadow-md border border-slate-900 ring-2 ring-slate-900 relative z-0 hover:z-10 hover:scale-110 transition-transform cursor-help`}
+                                  title={`Sedang menonton: ${visitor.label}`}
+                               >
+                                  {visitor.emoji}
+                               </div>
+                            ))}
+                         </div>
+                         <div className="text-xs text-slate-500 font-medium">
+                            +{Math.max((video.viewCount || 0) - crowd.length, 0)} others
+                         </div>
+                      </div>
+                   </div>
+
                    {/* Share Buttons */}
                    <div className="flex flex-wrap gap-3">
                     <button onClick={handleWhatsAppShare} className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors shadow-lg">
@@ -319,7 +364,12 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                           )}
                           <p className="text-slate-200 text-sm mb-2 leading-relaxed whitespace-pre-wrap pr-6">{comment.text}</p>
                           <div className="flex justify-between items-end border-t border-slate-900 pt-2 mt-2">
-                             <span className="text-indigo-400 text-xs font-semibold">{comment.userName || 'Anonymous'}</span>
+                             <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-xs">
+                                   {comment.userName ? comment.userName.charAt(0) : 'A'}
+                                </div>
+                                <span className="text-indigo-400 text-xs font-semibold">{comment.userName || 'Anonymous'}</span>
+                             </div>
                              <span className="text-slate-600 text-[10px] font-medium">
                               {new Date(comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                             </span>
@@ -355,7 +405,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                       <textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Tulis komentar..."
+                        placeholder={`Komentar sebagai ${myAvatar?.label || 'Pengunjung'}...`}
                         rows={3}
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-4 pr-12 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner resize-none"
                         disabled={isSubmitting}

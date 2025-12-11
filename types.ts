@@ -1,3 +1,4 @@
+
 export interface Comment {
   id: string;
   text: string;
@@ -44,4 +45,11 @@ export interface VideoFormData {
   driveLink: string;
   caption: string;
   thumbnailFile: File | null;
+}
+
+export interface VisitorAvatar {
+  emoji: string;
+  bgClass: string;
+  label: string;
+  id: string;
 }
