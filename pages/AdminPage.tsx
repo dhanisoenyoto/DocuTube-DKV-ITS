@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2, Cloud, CloudOff, Users, GraduationCap } from 'lucide-react';
-import { parseDriveLink, saveVideo, updateVideo, fileToBase64, getVideos, deleteVideo, getAverageRating, getLecturers, saveLecturer, deleteLecturer } from '../services/videoService';
+import { Upload, Link as LinkIcon, FileImage, Type, CheckCircle, AlertCircle, X, SortAsc, SortDesc, Calendar, UserCheck, AlertTriangle, Edit2, Loader2, Cloud, CloudOff, Users, GraduationCap, RefreshCw } from 'lucide-react';
+import { parseDriveLink, saveVideo, updateVideo, fileToBase64, getVideos, deleteVideo, getAverageRating, getLecturers, saveLecturer, deleteLecturer, resetAllStatistics } from '../services/videoService';
 import { getCurrentUser } from '../services/authService';
 import { isConfigured } from '../services/firebaseConfig';
 import { VideoItem, Lecturer } from '../types';
@@ -36,8 +37,11 @@ export const AdminPage: React.FC = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]);
   const [sortType, setSortType] = useState<SortType>('newest');
+  
+  // Modals
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteType, setDeleteType] = useState<'video' | 'lecturer'>('video');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lecFileInputRef = useRef<HTMLInputElement>(null);
@@ -192,6 +196,21 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  const handleResetStatistics = async () => {
+    setIsLoading(true);
+    setLoadingStatus('Resetting stats...');
+    try {
+      await resetAllStatistics();
+      await refreshVideos();
+      setMessage({ type: 'success', text: 'Semua statistik (View, Rating, Komentar) berhasil di-reset ke 0.' });
+      setShowResetConfirm(false);
+    } catch (e: any) {
+      setMessage({ type: 'error', text: 'Gagal reset: ' + e.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex flex-col md:flex-row items-center justify-between mb-8 bg-indigo-900/20 p-4 rounded-xl border border-indigo-500/30 gap-4">
@@ -262,13 +281,25 @@ export const AdminPage: React.FC = () => {
         {/* --- VIDEOS TAB --- */}
         {activeTab === 'videos' && (
           <div className="space-y-6 animate-in fade-in">
-             <div className="flex justify-between mb-4">
+             <div className="flex flex-col md:flex-row justify-between mb-4 gap-4">
                 <h3 className="text-xl font-bold">Daftar Video ({existingVideos.length})</h3>
-                <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
-                  <button onClick={() => setSortType('newest')} className={`px-3 py-1 text-xs rounded ${sortType === 'newest' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>Newest</button>
-                  <button onClick={() => setSortType('best')} className={`px-3 py-1 text-xs rounded ${sortType === 'best' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>Best</button>
+                <div className="flex gap-2">
+                  <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 h-fit">
+                    <button onClick={() => setSortType('newest')} className={`px-3 py-1 text-xs rounded ${sortType === 'newest' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>Newest</button>
+                    <button onClick={() => setSortType('best')} className={`px-3 py-1 text-xs rounded ${sortType === 'best' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>Best</button>
+                  </div>
+                  {/* Reset Button */}
+                  <button 
+                    onClick={() => setShowResetConfirm(true)}
+                    className="flex items-center gap-2 px-3 py-1 bg-slate-900 border border-red-500/30 text-red-400 text-xs rounded-lg hover:bg-red-900/20 transition-colors h-fit self-start"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Reset Statistik
+                  </button>
                 </div>
              </div>
+             
+             {message && message.type === 'success' && <div className="p-3 bg-green-500/10 text-green-400 rounded-lg text-sm">{message.text}</div>}
+
              {isFetching ? <Loader2 className="mx-auto animate-spin" /> : (
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {getSortedVideos().map(video => (
@@ -321,13 +352,55 @@ export const AdminPage: React.FC = () => {
         )}
       </div>
 
+      {/* Delete Confirmation Modal */}
       {deleteTargetId && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-slate-900 rounded-2xl p-6 max-w-sm w-full border border-red-500/30">
             <h3 className="text-xl font-bold text-white mb-2">Hapus Data?</h3>
-            <div className="flex gap-3 pt-4">
-              <button onClick={() => setDeleteTargetId(null)} className="flex-1 px-4 py-2 bg-slate-800 text-white rounded">Batal</button>
-              <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded">Hapus</button>
+            <p className="text-slate-400 text-sm mb-6">Data yang dihapus tidak dapat dikembalikan.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteTargetId(null)} className="flex-1 px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-700">Batal</button>
+              <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Stats Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in zoom-in-95">
+          <div className="bg-slate-900 rounded-2xl p-6 max-w-md w-full border border-red-500/50 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4 text-red-500">
+              <AlertTriangle className="w-8 h-8" />
+              <h3 className="text-xl font-bold">Reset Statistik?</h3>
+            </div>
+            <p className="text-slate-300 mb-2">
+              Anda akan mereset data berikut ke 0 untuk <strong>SEMUA VIDEO</strong>:
+            </p>
+            <ul className="list-disc list-inside text-slate-400 text-sm mb-6 space-y-1 ml-2">
+              <li>Jumlah Views</li>
+              <li>Jumlah Shares</li>
+              <li>Semua Rating/Bintang</li>
+              <li>Semua Komentar</li>
+            </ul>
+            <p className="text-red-400 text-sm font-bold mb-6 italic">
+              Tindakan ini tidak bisa dibatalkan!
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowResetConfirm(false)} 
+                className="flex-1 px-4 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-medium"
+                disabled={isLoading}
+              >
+                Batalkan
+              </button>
+              <button 
+                onClick={handleResetStatistics} 
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold flex justify-center gap-2 items-center"
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="animate-spin w-4 h-4" /> : 'Ya, Reset Semuanya'}
+              </button>
             </div>
           </div>
         </div>

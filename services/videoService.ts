@@ -1,10 +1,11 @@
 
 import { VideoItem, Comment, Lecturer } from '../types';
 import { db, isConfigured } from './firebaseConfig';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment, writeBatch } from 'firebase/firestore';
 
 const STORAGE_KEY = 'drivestream_db_v1';
 const LECTURER_STORAGE_KEY = 'lecturer_db_v1';
+const VIEWED_KEY = 'viewed_videos_list';
 const COLLECTION_NAME = 'videos';
 const LECTURER_COLLECTION = 'lecturers';
 
@@ -267,6 +268,51 @@ export const addComment = async (videoId: string, text: string, userName?: strin
     video.comments.unshift(newComment);
     saveLocalVideos(videos);
   }
+};
+
+// --- RESET STATISTICS ---
+
+export const resetAllStatistics = async (): Promise<void> => {
+  // 1. Clear Local Tracking to allow re-viewing
+  localStorage.removeItem(VIEWED_KEY);
+
+  // 2. Reset Database / Local Storage Data
+  if (isConfigured && db) {
+    try {
+      // Fetch all videos
+      const q = query(collection(db, COLLECTION_NAME));
+      const querySnapshot = await getDocs(q);
+      
+      const batch = writeBatch(db);
+      
+      querySnapshot.docs.forEach((docSnapshot) => {
+        const docRef = doc(db, COLLECTION_NAME, docSnapshot.id);
+        batch.update(docRef, {
+          viewCount: 0,
+          shareCount: 0,
+          ratings: [],
+          comments: []
+        });
+      });
+
+      await batch.commit();
+      return;
+    } catch (e) {
+      console.error("Failed to reset statistics in Cloud", e);
+      throw e;
+    }
+  }
+
+  // Local Storage Reset
+  const videos = getLocalVideos();
+  const resetVideos = videos.map(v => ({
+    ...v,
+    viewCount: 0,
+    shareCount: 0,
+    ratings: [],
+    comments: []
+  }));
+  saveLocalVideos(resetVideos);
 };
 
 // --- LECTURER SERVICES ---
