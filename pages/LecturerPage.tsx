@@ -36,7 +36,7 @@ export const LecturerPage: React.FC = () => {
          </div>
       </div>
 
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-12 max-w-5xl">
          {isLoading ? (
             <div className="flex justify-center py-12">
                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -46,19 +46,33 @@ export const LecturerPage: React.FC = () => {
                Belum ada data pengajar.
             </div>
          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="space-y-6">
                {lecturers.map(lecturer => (
-                  <div key={lecturer.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-orange-500/50 transition-all hover:shadow-xl hover:shadow-orange-500/10 flex flex-col items-center text-center p-8 group">
-                     <div className="w-32 h-32 rounded-full border-4 border-slate-800 overflow-hidden mb-6 group-hover:border-orange-500 transition-colors">
-                        <img 
-                           src={lecturer.photoUrl} 
-                           alt={lecturer.name} 
-                           className="w-full h-full object-cover"
-                        />
+                  <div key={lecturer.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 hover:border-orange-500/50 transition-all hover:shadow-xl hover:shadow-orange-500/10 group">
+                     {/* Foto Profile */}
+                     <div className="shrink-0">
+                        <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-slate-800 overflow-hidden group-hover:border-orange-500 transition-colors shadow-lg">
+                           <img 
+                              src={lecturer.photoUrl} 
+                              alt={lecturer.name} 
+                              className="w-full h-full object-cover"
+                           />
+                        </div>
                      </div>
-                     <h3 className="text-xl font-bold text-white mb-1">{lecturer.name}</h3>
-                     <p className="text-orange-400 text-sm font-medium mb-4">{lecturer.nip}</p>
-                     <p className="text-slate-400 text-sm leading-relaxed">{lecturer.bio}</p>
+                     
+                     {/* Info Text */}
+                     <div className="flex-1 text-center md:text-left space-y-3">
+                        <div>
+                           <h3 className="text-2xl font-bold text-white group-hover:text-orange-400 transition-colors">{lecturer.name}</h3>
+                           <div className="inline-block px-3 py-1 rounded-full bg-slate-800 text-orange-500 text-sm font-medium mt-2 border border-slate-700">
+                              {lecturer.nip}
+                           </div>
+                        </div>
+                        <div className="w-12 h-1 bg-slate-800 mx-auto md:mx-0 rounded-full"></div>
+                        <p className="text-slate-300 leading-relaxed text-base">
+                           {lecturer.bio}
+                        </p>
+                     </div>
                   </div>
                ))}
             </div>

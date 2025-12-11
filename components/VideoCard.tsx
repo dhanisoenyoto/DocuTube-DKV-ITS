@@ -45,10 +45,29 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
 
   const handleOpen = () => {
     setIsOpen(true);
-    // Increment view count
-    incrementViewCount(video.id).then(() => {
-      if (onUpdate) onUpdate(); // Update UI to show new view count
-    });
+    
+    // --- UNIQUE VIEW LOGIC ---
+    // Gunakan LocalStorage untuk menandai video yang sudah ditonton di device ini.
+    // Key: 'viewed_videos_list' -> Value: Array of IDs ['vid1', 'vid2']
+    const STORAGE_KEY = 'viewed_videos_list';
+    
+    try {
+      const viewedList = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      
+      // Jika ID video ini BELUM ada di list, maka hitung sebagai view baru
+      if (!viewedList.includes(video.id)) {
+        incrementViewCount(video.id).then(() => {
+          // Update local storage
+          const newList = [...viewedList, video.id];
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newList));
+          
+          if (onUpdate) onUpdate(); // Update UI to show new view count
+        });
+      }
+      // Jika SUDAH ada, jangan lakukan apa-apa (tidak menambah view count)
+    } catch (e) {
+      console.error("Error accessing local storage for views", e);
+    }
   };
 
   const handleRate = async (rating: number) => {
