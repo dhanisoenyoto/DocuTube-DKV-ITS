@@ -49,28 +49,45 @@ export const HomePage: React.FC = () => {
   return (
     <main className="min-h-screen pb-12">
       {/* Hero Section */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-20 px-4">
-        <div className="container mx-auto max-w-4xl text-center space-y-6">
-          {/* Changed text color to Orange as requested */}
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-orange-500 drop-shadow-sm">
-            Screening Online <br className="hidden md:block" /> Film Dokumenter 2025
-          </h1>
-          <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-            Berikut adalah kumpulan dari film dokumenter mata kuliah videografi 2025, tonton, apresiasi, dan sebarkan!
-          </p>
+      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-20 md:py-32 px-4 overflow-hidden relative">
+        {/* Background Accent */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl pointer-events-none">
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="container mx-auto max-w-5xl relative z-10">
           
-          <div className="max-w-md mx-auto relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-500 group-focus-within:text-orange-500 transition-colors" />
+          {/* Text Only - Clean Layout */}
+          <div className="flex flex-col items-center justify-center text-center mb-12">
+            
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-white drop-shadow-sm leading-[1.1] mb-6">
+              Screening Online <br /> 
+              <span className="text-pink-500">Film Dokumenter 2025</span>
+            </h1>
+            
+            <div className="h-1.5 w-32 bg-pink-500 rounded-full mb-8 opacity-90 shadow-[0_0_15px_rgba(236,72,153,0.5)]"></div>
+            
+            <p className="text-lg md:text-xl text-slate-400 font-light leading-relaxed max-w-2xl mx-auto">
+              Kumpulan karya film dokumenter mata kuliah videografi 2025. Tonton, apresiasi, dan sebarkan inspirasi!
+            </p>
+            
+          </div>
+          
+          {/* Search Bar */}
+          <div className="max-w-2xl mx-auto relative group mt-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-slate-500 group-focus-within:text-pink-500 transition-colors" />
             </div>
             <input
               type="text"
-              className="block w-full pl-10 pr-3 py-3 border border-slate-700 rounded-full leading-5 bg-slate-900/50 text-slate-300 placeholder-slate-500 focus:outline-none focus:bg-slate-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm transition-all shadow-xl"
-              placeholder="Cari video..."
+              className="block w-full pl-14 pr-6 py-5 border border-slate-700 rounded-full leading-5 bg-slate-900/80 backdrop-blur-md text-slate-200 placeholder-slate-500 focus:outline-none focus:bg-slate-900 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-lg transition-all shadow-2xl hover:bg-slate-900 hover:border-slate-600"
+              placeholder="Cari judul film, sutradara, atau kata kunci..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
         </div>
       </div>
 
@@ -78,7 +95,7 @@ export const HomePage: React.FC = () => {
       <div className="container mx-auto px-4 py-12">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-            <Loader2 className="w-10 h-10 animate-spin mb-4 text-orange-500" />
+            <Loader2 className="w-10 h-10 animate-spin mb-4 text-pink-500" />
             <p>Memuat galeri video...</p>
           </div>
         ) : filteredVideos.length > 0 ? (
@@ -95,25 +112,25 @@ export const HomePage: React.FC = () => {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex flex-col items-center mt-12 space-y-4">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col items-center mt-16 space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                <div className="flex items-center gap-2 p-1 bg-slate-900/50 rounded-xl border border-slate-800 shadow-lg">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-800 transition-all"
+                    className="p-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-1 px-2 overflow-x-auto max-w-[200px] md:max-w-none scrollbar-hide">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                       <button
                         key={page}
                         onClick={() => handlePageChange(page)}
-                        className={`w-10 h-10 rounded-lg border font-medium transition-all ${
+                        className={`w-10 h-10 shrink-0 rounded-lg font-bold text-sm transition-all ${
                           currentPage === page
-                            ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-500/25'
-                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-orange-500'
+                            ? 'bg-pink-600 text-white shadow-lg shadow-pink-500/25 scale-110'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
                         }`}
                       >
                         {page}
@@ -124,25 +141,25 @@ export const HomePage: React.FC = () => {
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-800 transition-all"
+                    className="p-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
                 </div>
                 
-                <p className="text-slate-500 text-sm">
-                  Menampilkan halaman {currentPage} dari {totalPages}
+                <p className="text-slate-500 text-xs uppercase tracking-widest">
+                  Halaman {currentPage} dari {totalPages}
                 </p>
               </div>
             )}
           </>
         ) : (
-          <div className="text-center py-20">
-             <div className="inline-block p-4 rounded-full bg-slate-900 mb-4">
-               <Search className="w-8 h-8 text-slate-600" />
+          <div className="text-center py-20 animate-in zoom-in duration-300">
+             <div className="inline-flex p-6 rounded-full bg-slate-900/50 mb-6 border border-slate-800 shadow-xl">
+               <Search className="w-12 h-12 text-slate-600" />
              </div>
-             <h3 className="text-xl font-medium text-slate-300">Tidak ada video ditemukan</h3>
-             <p className="text-slate-500 mt-2">Coba kata kunci pencarian yang lain.</p>
+             <h3 className="text-2xl font-bold text-slate-300 mb-2">Tidak ada video ditemukan</h3>
+             <p className="text-slate-500">Coba gunakan kata kunci pencarian yang lain.</p>
           </div>
         )}
       </div>
