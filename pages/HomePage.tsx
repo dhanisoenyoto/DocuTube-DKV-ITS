@@ -21,7 +21,6 @@ export const HomePage: React.FC = () => {
   }, [searchTerm]);
 
   const loadVideos = async () => {
-    // Keep loading true for at least a beat to show UI stability or waiting for DB
     try {
       const data = await getVideos();
       setVideos(data);
@@ -52,7 +51,8 @@ export const HomePage: React.FC = () => {
       {/* Hero Section */}
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-20 px-4">
         <div className="container mx-auto max-w-4xl text-center space-y-6">
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
+          {/* Changed text color to Orange as requested */}
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-orange-500 drop-shadow-sm">
             Screening Online <br className="hidden md:block" /> Film Dokumenter 2025
           </h1>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto">
@@ -61,11 +61,11 @@ export const HomePage: React.FC = () => {
           
           <div className="max-w-md mx-auto relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+              <Search className="h-5 w-5 text-slate-500 group-focus-within:text-orange-500 transition-colors" />
             </div>
             <input
               type="text"
-              className="block w-full pl-10 pr-3 py-3 border border-slate-700 rounded-full leading-5 bg-slate-900/50 text-slate-300 placeholder-slate-500 focus:outline-none focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all shadow-xl"
+              className="block w-full pl-10 pr-3 py-3 border border-slate-700 rounded-full leading-5 bg-slate-900/50 text-slate-300 placeholder-slate-500 focus:outline-none focus:bg-slate-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm transition-all shadow-xl"
               placeholder="Cari video..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -78,7 +78,7 @@ export const HomePage: React.FC = () => {
       <div className="container mx-auto px-4 py-12">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-            <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500" />
+            <Loader2 className="w-10 h-10 animate-spin mb-4 text-orange-500" />
             <p>Memuat galeri video...</p>
           </div>
         ) : filteredVideos.length > 0 ? (
@@ -100,7 +100,7 @@ export const HomePage: React.FC = () => {
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-800 transition-all"
+                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-800 transition-all"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
@@ -112,8 +112,8 @@ export const HomePage: React.FC = () => {
                         onClick={() => handlePageChange(page)}
                         className={`w-10 h-10 rounded-lg border font-medium transition-all ${
                           currentPage === page
-                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/25'
-                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-indigo-500'
+                            ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-500/25'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-orange-500'
                         }`}
                       >
                         {page}
@@ -124,7 +124,7 @@ export const HomePage: React.FC = () => {
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-800 transition-all"
+                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-orange-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-800 transition-all"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>

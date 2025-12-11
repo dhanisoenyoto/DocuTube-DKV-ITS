@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage } from './pages/LoginPage';
+import { LecturerPage } from './pages/LecturerPage';
 import { isAuthenticated, logout, subscribeToAuthChanges } from './services/authService';
 
 function App() {
@@ -27,11 +28,12 @@ function App() {
 
   return (
     <Router>
-      <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30">
+      <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-orange-500/30">
         <Navbar isAuth={isAuth} onLogout={handleLogout} />
         <div className="flex-grow">
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/lecturers" element={<LecturerPage />} />
             <Route 
               path="/login" 
               element={

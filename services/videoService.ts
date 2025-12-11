@@ -1,9 +1,11 @@
-import { VideoItem, Comment } from '../types';
+import { VideoItem, Comment, Lecturer } from '../types';
 import { db, isConfigured } from './firebaseConfig';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment } from 'firebase/firestore';
 
 const STORAGE_KEY = 'drivestream_db_v1';
+const LECTURER_STORAGE_KEY = 'lecturer_db_v1';
 const COLLECTION_NAME = 'videos';
+const LECTURER_COLLECTION = 'lecturers';
 
 // --- INITIAL DUMMY DATA (Fallback) ---
 const INITIAL_DATA: VideoItem[] = [
@@ -16,8 +18,9 @@ const INITIAL_DATA: VideoItem[] = [
     caption: 'Sebuah dokumenter pendek yang merekam denyut kehidupan para nelayan di pesisir Surabaya, menyoroti tantangan modernisasi dan tradisi yang bertahan.',
     createdAt: Date.now(),
     ratings: [5, 5, 4],
+    viewCount: 125,
     comments: [
-      { id: 'c1', text: 'Visualnya sangat cinematic! Color gradingnya pas banget.', createdAt: Date.now() - 100000, userName: 'Mahasiswa A' }
+      { id: 'c1', text: 'Visualnya sangat cinematic! Color gradingnya pas banget.', createdAt: Date.now() - 100000, userName: 'Mahasiswa A', reaction: '🔥' }
     ],
     uploadedBy: { uid: 'system', name: 'System Admin' }
   },
@@ -30,6 +33,7 @@ const INITIAL_DATA: VideoItem[] = [
     caption: 'Eksplorasi visual tentang interaksi manusia di pasar tradisional yang mulai tergerus zaman. Tugas Akhir Videografi Kelompok 3.',
     createdAt: Date.now() - 10000,
     ratings: [4, 5],
+    viewCount: 89,
     comments: [],
     uploadedBy: { uid: 'system', name: 'System Admin' }
   }
@@ -43,7 +47,9 @@ const getLocalVideos = (): VideoItem[] => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DATA));
       return INITIAL_DATA;
     }
-    return JSON.parse(stored);
+    const data = JSON.parse(stored);
+    // Migration for existing data without viewCount
+    return data.map((v: any) => ({ ...v, viewCount: v.viewCount || 0 }));
   } catch (e) {
     return [];
   }
@@ -53,8 +59,20 @@ const saveLocalVideos = (videos: VideoItem[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(videos));
 };
 
+const getLocalLecturers = (): Lecturer[] => {
+  try {
+    const stored = localStorage.getItem(LECTURER_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveLocalLecturers = (lecturers: Lecturer[]) => {
+  localStorage.setItem(LECTURER_STORAGE_KEY, JSON.stringify(lecturers));
+};
+
 // --- HELPER: Sanitize Data for Firestore ---
-// Firestore rejects 'undefined', so we convert object to JSON and back to remove undefined keys
 const sanitizeData = (data: any) => {
   return JSON.parse(JSON.stringify(data));
 };
@@ -62,21 +80,17 @@ const sanitizeData = (data: any) => {
 // --- MAIN SERVICE FUNCTIONS (Async) ---
 
 export const getVideos = async (): Promise<VideoItem[]> => {
-  // 1. Try Firebase
   if (isConfigured && db) {
     try {
       const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VideoItem));
+      return querySnapshot.docs.map(doc => ({ id: doc.id, viewCount: 0, ...doc.data() } as VideoItem));
     } catch (error) {
       console.error("Error fetching from Firebase:", error);
-      // Fallback to local if fetch fails (e.g. permission error)
       return getLocalVideos();
     }
   }
-  // 2. Fallback LocalStorage
   return new Promise(resolve => {
-    // Simulate network delay for realism
     setTimeout(() => resolve(getLocalVideos()), 300);
   });
 };
@@ -84,15 +98,11 @@ export const getVideos = async (): Promise<VideoItem[]> => {
 export const saveVideo = async (video: VideoItem): Promise<void> => {
   if (isConfigured && db) {
     try {
-      // Remove ID because Firestore generates it
       const { id, ...videoData } = video;
-      // Sanitize to remove any 'undefined' values which cause Firestore to crash
       const safeData = sanitizeData(videoData);
       
-      // Safety Check: Firestore Limit is 1MB (approx 1,048,576 bytes)
-      // Base64 string length roughly represents size in bytes (a bit more)
       if (video.thumbnailUrl && video.thumbnailUrl.length > 950000) {
-        throw new Error("Ukuran gambar thumbnail terlalu besar meskipun sudah dikompres. Coba gunakan gambar lain yang lebih kecil.");
+        throw new Error("Ukuran gambar thumbnail terlalu besar.");
       }
 
       await addDoc(collection(db, COLLECTION_NAME), safeData);
@@ -103,7 +113,6 @@ export const saveVideo = async (video: VideoItem): Promise<void> => {
     }
   }
   
-  // Local Fallback
   const current = getLocalVideos();
   const updated = [video, ...current];
   saveLocalVideos(updated);
@@ -113,10 +122,7 @@ export const updateVideo = async (updatedVideo: VideoItem): Promise<void> => {
   if (isConfigured && db) {
     try {
       const videoRef = doc(db, COLLECTION_NAME, updatedVideo.id);
-      // IMPORTANT: When updating video details (Edit), we exclude ratings/comments arrays 
-      // from the update payload to avoid overwriting concurrent atomic updates from other users.
-      const { id, ratings, comments, ...data } = updatedVideo;
-      // Sanitize data
+      const { id, ratings, comments, viewCount, ...data } = updatedVideo; // Exclude counters/arrays
       const safeData = sanitizeData(data);
 
       if (updatedVideo.thumbnailUrl && updatedVideo.thumbnailUrl.length > 950000) {
@@ -131,11 +137,9 @@ export const updateVideo = async (updatedVideo: VideoItem): Promise<void> => {
     }
   }
 
-  // Local Fallback
   const current = getLocalVideos();
   const index = current.findIndex(v => v.id === updatedVideo.id);
   if (index !== -1) {
-    // For local, we just replace the whole object
     current[index] = updatedVideo;
     saveLocalVideos(current);
   }
@@ -152,14 +156,35 @@ export const deleteVideo = async (id: string): Promise<void> => {
     }
   }
 
-  // Local Fallback
   const current = getLocalVideos();
   const updated = current.filter(v => v.id !== id);
   saveLocalVideos(updated);
 };
 
+// --- INTERACTION SERVICES ---
+
+export const incrementViewCount = async (videoId: string): Promise<void> => {
+  if (isConfigured && db) {
+    try {
+      const videoRef = doc(db, COLLECTION_NAME, videoId);
+      await updateDoc(videoRef, {
+        viewCount: increment(1)
+      });
+      return;
+    } catch (e) {
+      console.error("Firebase view increment failed", e);
+    }
+  }
+
+  const videos = getLocalVideos();
+  const video = videos.find(v => v.id === videoId);
+  if (video) {
+    video.viewCount = (video.viewCount || 0) + 1;
+    saveLocalVideos(videos);
+  }
+};
+
 export const addRating = async (videoId: string, rating: number): Promise<void> => {
-  // 1. Firebase Atomic Update
   if (isConfigured && db) {
     try {
       const videoRef = doc(db, COLLECTION_NAME, videoId);
@@ -172,7 +197,6 @@ export const addRating = async (videoId: string, rating: number): Promise<void> 
     }
   }
   
-  // 2. Local Fallback (Standard Read-Modify-Write)
   const videos = getLocalVideos();
   const video = videos.find(v => v.id === videoId);
   if (video) {
@@ -182,15 +206,15 @@ export const addRating = async (videoId: string, rating: number): Promise<void> 
   }
 };
 
-export const addComment = async (videoId: string, text: string, userName?: string): Promise<void> => {
+export const addComment = async (videoId: string, text: string, userName?: string, reaction?: string): Promise<void> => {
   const newComment: Comment = {
     id: crypto.randomUUID(),
     text,
     createdAt: Date.now(),
-    userName: userName || 'Anonymous'
+    userName: userName || 'Anonymous',
+    reaction: reaction
   };
 
-  // 1. Firebase Atomic Update
   if (isConfigured && db) {
     try {
       const videoRef = doc(db, COLLECTION_NAME, videoId);
@@ -203,7 +227,6 @@ export const addComment = async (videoId: string, text: string, userName?: strin
     }
   }
 
-  // 2. Local Fallback
   const videos = getLocalVideos();
   const video = videos.find(v => v.id === videoId);
   if (video) {
@@ -213,7 +236,45 @@ export const addComment = async (videoId: string, text: string, userName?: strin
   }
 };
 
-// --- UTILS (Sync) ---
+// --- LECTURER SERVICES ---
+
+export const getLecturers = async (): Promise<Lecturer[]> => {
+  if (isConfigured && db) {
+    try {
+      const q = query(collection(db, LECTURER_COLLECTION));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lecturer));
+    } catch (error) {
+      return getLocalLecturers();
+    }
+  }
+  return getLocalLecturers();
+};
+
+export const saveLecturer = async (lecturer: Lecturer): Promise<void> => {
+  if (isConfigured && db) {
+    try {
+      const { id, ...data } = lecturer;
+      await addDoc(collection(db, LECTURER_COLLECTION), sanitizeData(data));
+      return;
+    } catch (e) { throw e; }
+  }
+  const current = getLocalLecturers();
+  saveLocalLecturers([...current, lecturer]);
+};
+
+export const deleteLecturer = async (id: string): Promise<void> => {
+  if (isConfigured && db) {
+    try {
+      await deleteDoc(doc(db, LECTURER_COLLECTION, id));
+      return;
+    } catch (e) { throw e; }
+  }
+  const current = getLocalLecturers();
+  saveLocalLecturers(current.filter(l => l.id !== id));
+};
+
+// --- UTILS ---
 
 export const getAverageRating = (ratings: number[]): number => {
   if (!ratings || ratings.length === 0) return 0;
@@ -243,12 +304,10 @@ export const parseDriveLink = (link: string): string | null => {
   return null;
 };
 
-// IMPROVED IMAGE COMPRESSION
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
-    // Timeout safeguard: If processing takes > 10 seconds, reject.
     const timeoutId = setTimeout(() => {
-      reject(new Error("Waktu habis saat memproses gambar. Coba gambar lain atau format berbeda (JPG/PNG)."));
+      reject(new Error("Waktu habis saat memproses gambar."));
     }, 10000);
 
     const reader = new FileReader();
@@ -260,12 +319,10 @@ export const fileToBase64 = (file: File): Promise<string> => {
       
       img.onload = () => {
         try {
-          // Create a canvas to resize/compress the image
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Resize to max width 800px
+          const MAX_WIDTH = 800;
           const scaleSize = MAX_WIDTH / img.width;
           
-          // Calculate new dimensions
           if (scaleSize < 1) {
               canvas.width = MAX_WIDTH;
               canvas.height = img.height * scaleSize;
@@ -277,14 +334,11 @@ export const fileToBase64 = (file: File): Promise<string> => {
           const ctx = canvas.getContext('2d');
           if (!ctx) {
               clearTimeout(timeoutId);
-              reject(new Error("Browser tidak mendukung canvas context"));
+              reject(new Error("Browser error"));
               return;
           }
 
-          // Draw image to canvas
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
-          // Convert to Base64 JPEG with 0.6 quality (More aggressive compression)
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
           
           clearTimeout(timeoutId);
@@ -294,14 +348,12 @@ export const fileToBase64 = (file: File): Promise<string> => {
           reject(err);
         }
       };
-      
-      img.onerror = (error) => {
+      img.onerror = () => {
         clearTimeout(timeoutId);
-        reject(new Error("File gambar rusak atau format tidak didukung browser."));
+        reject(new Error("File rusak."));
       };
     };
-    
-    reader.onerror = (error) => {
+    reader.onerror = () => {
       clearTimeout(timeoutId);
       reject(new Error("Gagal membaca file."));
     };

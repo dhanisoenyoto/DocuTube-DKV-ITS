@@ -3,6 +3,7 @@ export interface Comment {
   text: string;
   createdAt: number;
   userName?: string; // Optional: who commented
+  reaction?: string; // New: Emoticon reaction
 }
 
 export interface User {
@@ -22,11 +23,20 @@ export interface VideoItem {
   createdAt: number;
   ratings: number[];
   comments: Comment[];
+  viewCount: number; // New: View counter
   uploadedBy?: {
     uid: string;
     name: string;
     photoURL?: string;
   };
+}
+
+export interface Lecturer {
+  id: string;
+  name: string;
+  nip: string;
+  bio: string;
+  photoUrl: string;
 }
 
 export interface VideoFormData {
