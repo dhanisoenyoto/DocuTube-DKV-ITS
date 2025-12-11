@@ -20,6 +20,7 @@ const INITIAL_DATA: VideoItem[] = [
     createdAt: Date.now(),
     ratings: [5, 5, 4],
     viewCount: 125,
+    shareCount: 12,
     comments: [
       { id: 'c1', text: 'Visualnya sangat cinematic! Color gradingnya pas banget.', createdAt: Date.now() - 100000, userName: 'Mahasiswa A', reaction: '🔥' }
     ],
@@ -35,6 +36,7 @@ const INITIAL_DATA: VideoItem[] = [
     createdAt: Date.now() - 10000,
     ratings: [4, 5],
     viewCount: 89,
+    shareCount: 5,
     comments: [],
     uploadedBy: { uid: 'system', name: 'System Admin' }
   }
@@ -49,8 +51,12 @@ const getLocalVideos = (): VideoItem[] => {
       return INITIAL_DATA;
     }
     const data = JSON.parse(stored);
-    // Migration for existing data without viewCount
-    return data.map((v: any) => ({ ...v, viewCount: v.viewCount || 0 }));
+    // Migration for existing data
+    return data.map((v: any) => ({ 
+      ...v, 
+      viewCount: v.viewCount || 0,
+      shareCount: v.shareCount || 0
+    }));
   } catch (e) {
     return [];
   }
@@ -85,7 +91,12 @@ export const getVideos = async (): Promise<VideoItem[]> => {
     try {
       const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({ id: doc.id, viewCount: 0, ...doc.data() } as VideoItem));
+      return querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        viewCount: 0, 
+        shareCount: 0, 
+        ...doc.data() 
+      } as VideoItem));
     } catch (error) {
       console.error("Error fetching from Firebase:", error);
       return getLocalVideos();
@@ -123,7 +134,7 @@ export const updateVideo = async (updatedVideo: VideoItem): Promise<void> => {
   if (isConfigured && db) {
     try {
       const videoRef = doc(db, COLLECTION_NAME, updatedVideo.id);
-      const { id, ratings, comments, viewCount, ...data } = updatedVideo; // Exclude counters/arrays
+      const { id, ratings, comments, viewCount, shareCount, ...data } = updatedVideo; // Exclude counters/arrays
       const safeData = sanitizeData(data);
 
       if (updatedVideo.thumbnailUrl && updatedVideo.thumbnailUrl.length > 950000) {
@@ -181,6 +192,27 @@ export const incrementViewCount = async (videoId: string): Promise<void> => {
   const video = videos.find(v => v.id === videoId);
   if (video) {
     video.viewCount = (video.viewCount || 0) + 1;
+    saveLocalVideos(videos);
+  }
+};
+
+export const incrementShareCount = async (videoId: string): Promise<void> => {
+  if (isConfigured && db) {
+    try {
+      const videoRef = doc(db, COLLECTION_NAME, videoId);
+      await updateDoc(videoRef, {
+        shareCount: increment(1)
+      });
+      return;
+    } catch (e) {
+      console.error("Firebase share increment failed", e);
+    }
+  }
+
+  const videos = getLocalVideos();
+  const video = videos.find(v => v.id === videoId);
+  if (video) {
+    video.shareCount = (video.shareCount || 0) + 1;
     saveLocalVideos(videos);
   }
 };

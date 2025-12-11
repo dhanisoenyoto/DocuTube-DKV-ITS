@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PlaySquare, LogIn, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, PlaySquare, LogIn, LogOut, Users, BarChart3 } from 'lucide-react';
 import { getCurrentUser } from '../services/authService';
 
 interface NavbarProps {
@@ -46,6 +47,19 @@ export const Navbar: React.FC<NavbarProps> = ({ isAuth, onLogout }) => {
               <Users className="w-4 h-4" />
               <span className="hidden xs:inline">Tim Pengajar</span>
               <span className="xs:hidden">Pengajar</span>
+            </Link>
+
+            <Link 
+              to="/statistics" 
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                isActive('/statistics') 
+                  ? 'bg-orange-600 text-white shadow-lg' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden xs:inline">Statistik</span>
+              <span className="xs:hidden">Stats</span>
             </Link>
             
             {isAuth ? (

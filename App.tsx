@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
@@ -5,6 +6,7 @@ import { HomePage } from './pages/HomePage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage } from './pages/LoginPage';
 import { LecturerPage } from './pages/LecturerPage';
+import { StatisticsPage } from './pages/StatisticsPage';
 import { isAuthenticated, logout, subscribeToAuthChanges } from './services/authService';
 
 function App() {
@@ -34,6 +36,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/lecturers" element={<LecturerPage />} />
+            <Route path="/statistics" element={<StatisticsPage />} />
             <Route 
               path="/login" 
               element={

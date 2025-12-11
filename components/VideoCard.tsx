@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { VideoItem, VisitorAvatar } from '../types';
 import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Edit, User as UserIcon, Eye, ThumbsUp, Heart, Smile, Frown, Zap, Users } from 'lucide-react';
-import { addRating, addComment, getAverageRating, incrementViewCount } from '../services/videoService';
+import { addRating, addComment, getAverageRating, incrementViewCount, incrementShareCount } from '../services/videoService';
 import { getCurrentUser } from '../services/authService';
 import { getVisitorId, generateAvatar, generateCrowd } from '../services/avatarService';
 
@@ -104,13 +104,21 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     if (onUpdate) onUpdate();
   };
 
-  const handleWhatsAppShare = () => {
+  const handleWhatsAppShare = async () => {
+    // Increment share count locally and in DB
+    await incrementShareCount(video.id);
+    if (onUpdate) onUpdate();
+
     const text = `Nonton Film Dokumenter: "${video.title}"\n\n"${video.caption.substring(0, 150)}..."\n\nTonton selengkapnya di DocuTube DKV ITS: ${SHARE_URL}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
   const handleNativeShare = async () => {
+    // Increment share count
+    await incrementShareCount(video.id);
+    if (onUpdate) onUpdate();
+
     const shareData = {
       title: `DocuTube: ${video.title}`,
       text: `Nonton film dokumenter "${video.title}" karya mahasiswa DKV ITS.\n\n${video.caption}`,
@@ -307,6 +315,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                     <p className="text-slate-200 leading-relaxed whitespace-pre-wrap text-base md:text-lg">{video.caption}</p>
                     <div className="flex items-center gap-4 mt-4 text-sm text-slate-500">
                        <span className="flex items-center gap-1"><Eye className="w-4 h-4" /> {video.viewCount || 0} views</span>
+                       <span className="flex items-center gap-1"><Share2 className="w-4 h-4" /> {video.shareCount || 0} shares</span>
                        {video.uploadedBy && <span>Diunggah oleh: {video.uploadedBy.name}</span>}
                     </div>
                   </div>

@@ -25,6 +25,7 @@ export interface VideoItem {
   ratings: number[];
   comments: Comment[];
   viewCount: number; // New: View counter
+  shareCount?: number; // New: Share counter
   uploadedBy?: {
     uid: string;
     name: string;
