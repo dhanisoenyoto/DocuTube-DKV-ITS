@@ -1,13 +1,16 @@
 
-import { VideoItem, Comment, Lecturer } from '../types';
+import { VideoItem, Comment, Lecturer, AboutData } from '../types';
 import { db, isConfigured } from './firebaseConfig';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment, writeBatch, setDoc, getDoc } from 'firebase/firestore';
 
 const STORAGE_KEY = 'drivestream_db_v1';
 const LECTURER_STORAGE_KEY = 'lecturer_db_v1';
+const ABOUT_STORAGE_KEY = 'about_content_v1';
 const VIEWED_KEY = 'viewed_videos_list';
 const COLLECTION_NAME = 'videos';
 const LECTURER_COLLECTION = 'lecturers';
+const ABOUT_COLLECTION = 'about_content';
+const ABOUT_DOC_ID = 'main_content';
 
 // --- INITIAL DUMMY DATA (Fallback) ---
 const INITIAL_DATA: VideoItem[] = [
@@ -42,6 +45,19 @@ const INITIAL_DATA: VideoItem[] = [
     uploadedBy: { uid: 'system', name: 'System Admin' }
   }
 ];
+
+const DEFAULT_ABOUT_DATA: AboutData = {
+  heroTitle: "Arsip Digital",
+  heroSubtitle: "Karya Visual",
+  introText: "Wadah apresiasi dan eksibisi online untuk karya film dokumenter mahasiswa Desain Komunikasi Visual ITS.",
+  visionTitle: "Visi & Misi",
+  visionText: "DocuTube DKV ITS lahir dari kebutuhan untuk mendokumentasikan dan mempublikasikan karya-karya terbaik mahasiswa mata kuliah Videografi.\n\nSetiap tahun, puluhan cerita inspiratif terekam dalam lensa mahasiswa, mulai dari budaya lokal, isu sosial, hingga potret humanis. Platform ini hadir agar cerita-cerita tersebut tidak hanya tersimpan di hard drive, melainkan dapat dinikmati, diapresiasi, dan menjadi referensi bagi publik luas.",
+  creatorName: "Dhani Soenyoto",
+  creatorRole: "Lead Developer & Designer",
+  creatorBio: "Mahasiswa/Alumni DKV ITS yang berfokus pada Creative Coding dan Web Development. Mengembangkan DocuTube untuk arsip digital yang berkelanjutan.",
+  address: "Gedung Desain Produk Industri & DKV, Kampus ITS Sukolilo, Surabaya, Jawa Timur 60111",
+  email: "admin@dkv.its.ac.id"
+};
 
 // --- HELPER: LocalStorage Implementation ---
 const getLocalVideos = (): VideoItem[] => {
@@ -352,6 +368,40 @@ export const deleteLecturer = async (id: string): Promise<void> => {
   const current = getLocalLecturers();
   saveLocalLecturers(current.filter(l => l.id !== id));
 };
+
+// --- ABOUT CONTENT SERVICES ---
+
+export const getAboutContent = async (): Promise<AboutData> => {
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, ABOUT_COLLECTION, ABOUT_DOC_ID);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return { ...DEFAULT_ABOUT_DATA, ...docSnap.data() } as AboutData;
+      }
+    } catch (e) {
+      console.error("Failed to fetch about content", e);
+    }
+  }
+  // Fallback / Local
+  const stored = localStorage.getItem(ABOUT_STORAGE_KEY);
+  return stored ? JSON.parse(stored) : DEFAULT_ABOUT_DATA;
+};
+
+export const saveAboutContent = async (data: AboutData): Promise<void> => {
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, ABOUT_COLLECTION, ABOUT_DOC_ID);
+      await setDoc(docRef, data); // setDoc creates or overwrites
+      return;
+    } catch (e) {
+      console.error("Failed to save about content", e);
+      throw e;
+    }
+  }
+  localStorage.setItem(ABOUT_STORAGE_KEY, JSON.stringify(data));
+};
+
 
 // --- UTILS ---
 

@@ -54,3 +54,16 @@ export interface VisitorAvatar {
   label: string;
   id: string;
 }
+
+export interface AboutData {
+  heroTitle: string;
+  heroSubtitle: string;
+  introText: string;
+  visionTitle: string;
+  visionText: string;
+  creatorName: string;
+  creatorRole: string;
+  creatorBio: string;
+  address: string;
+  email: string;
+}
