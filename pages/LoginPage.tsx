@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, AlertCircle, PlayCircle, Info, RefreshCw, XCircle } from 'lucide-react';
+import { ShieldCheck, AlertCircle, PlayCircle, Info, RefreshCw, XCircle, Users } from 'lucide-react';
 import { loginWithGoogle } from '../services/authService';
 import { isConfigured } from '../services/firebaseConfig';
 
@@ -14,13 +15,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (forceSwitch: boolean = false) => {
     setError('');
     setDetailedError('');
     setIsLoading(true);
     
     try {
-      await loginWithGoogle();
+      await loginWithGoogle(forceSwitch);
       onLoginSuccess();
       navigate('/admin');
     } catch (err: any) {
@@ -106,9 +107,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-3">
+          {/* Main Login Button */}
           <button 
-            onClick={handleGoogleLogin}
+            onClick={() => handleGoogleLogin(false)}
             disabled={isLoading || !isConfigured}
             className="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group active:scale-[0.98]"
           >
@@ -122,10 +124,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             )}
           </button>
           
-          <div className="flex items-start gap-2 p-3 bg-indigo-900/20 rounded-lg border border-indigo-500/20">
+          {/* Switch Account Button */}
+          <button 
+            onClick={() => handleGoogleLogin(true)}
+            disabled={isLoading || !isConfigured}
+            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-3 px-4 rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-sm"
+          >
+             <Users className="w-4 h-4" />
+             <span>Gunakan Akun Lain</span>
+          </button>
+          
+          <div className="flex items-start gap-2 p-3 bg-indigo-900/20 rounded-lg border border-indigo-500/20 mt-4">
             <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
             <p className="text-xs text-indigo-300 leading-relaxed">
-              Jika jendela login tidak muncul, pastikan Anda tidak memblokir pop-up.
+              Jika jendela login tidak muncul, pastikan Anda tidak memblokir pop-up. Gunakan tombol "Gunakan Akun Lain" jika ingin berganti email.
             </p>
           </div>
 

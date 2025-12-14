@@ -1,9 +1,10 @@
+
 import { auth, googleProvider } from './firebaseConfig';
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, Auth } from 'firebase/auth';
 import { User } from '../types';
 
 // --- LOGIN GOOGLE ---
-export const loginWithGoogle = async (): Promise<User | null> => {
+export const loginWithGoogle = async (forceSwitch: boolean = false): Promise<User | null> => {
   if (!auth || !googleProvider) {
     console.error("Auth Service Error: Auth or Provider is undefined. Check firebaseConfig.");
     throw new Error("Layanan Autentikasi belum siap. Silakan refresh halaman dan coba lagi.");
@@ -12,9 +13,15 @@ export const loginWithGoogle = async (): Promise<User | null> => {
   try {
     console.log("Initiating Google Sign-In...");
     
-    // Note: We rely on the default Firebase persistence (browserLocalPersistence).
-    // Explicitly setting it here can sometimes cause race conditions or promise rejections
-    // in certain environments, so we trust the default SDK behavior.
+    // Force account selection if requested (Switch User feature)
+    if (forceSwitch) {
+      googleProvider.setCustomParameters({
+        prompt: 'select_account'
+      });
+    } else {
+      // Clear custom parameters to allow auto-login if preferred in standard flow
+      googleProvider.setCustomParameters({});
+    }
 
     // Casting auth to Auth to satisfy strict TypeScript checks because we verified it above
     const result = await signInWithPopup(auth as Auth, googleProvider);
