@@ -7,6 +7,7 @@ import { AdminPage } from './pages/AdminPage';
 import { LoginPage } from './pages/LoginPage';
 import { LecturerPage } from './pages/LecturerPage';
 import { StatisticsPage } from './pages/StatisticsPage';
+import { AboutPage } from './pages/AboutPage';
 import { isAuthenticated, logout, subscribeToAuthChanges } from './services/authService';
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/lecturers" element={<LecturerPage />} />
             <Route path="/statistics" element={<StatisticsPage />} />
+            <Route path="/about" element={<AboutPage />} />
             <Route 
               path="/login" 
               element={
