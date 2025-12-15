@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { VideoItem, VisitorAvatar } from '../types';
-import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Edit, User as UserIcon, Eye, ThumbsUp, Heart, Smile, Frown, Zap, Users } from 'lucide-react';
-import { addRating, addComment, getAverageRating, incrementViewCount, incrementShareCount } from '../services/videoService';
+import { VideoItem, VisitorAvatar, Comment } from '../types';
+import { Play, X, Clock, Trash2, Star, MessageCircle, Send, Share2, Edit, User as UserIcon, Eye, ThumbsUp, Heart, Smile, Frown, Zap, Users, Edit2, Check, XCircle } from 'lucide-react';
+import { addRating, addComment, getAverageRating, incrementViewCount, incrementShareCount, deleteComment, updateComment } from '../services/videoService';
 import { getCurrentUser } from '../services/authService';
 import { getVisitorId, generateAvatar, generateCrowd } from '../services/avatarService';
 
@@ -23,6 +23,8 @@ const REACTIONS = [
   { emoji: '👎', label: 'Jelek' },
 ];
 
+const ADMIN_EMAIL = 'sancokbrancok@gmail.com';
+
 export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, onEdit, onUpdate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -31,9 +33,17 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
   const [hasRated, setHasRated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Comment Edit State
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [isUpdatingComment, setIsUpdatingComment] = useState(false);
+
   // Avatar State
   const [myAvatar, setMyAvatar] = useState<VisitorAvatar | null>(null);
   const [crowd, setCrowd] = useState<VisitorAvatar[]>([]);
+
+  const currentUser = getCurrentUser();
+  const isSuperAdmin = currentUser?.email === ADMIN_EMAIL;
 
   const avgRating = getAverageRating(video.ratings || []);
   const ratingCount = video.ratings?.length || 0;
@@ -93,7 +103,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     if (!newComment.trim()) return;
     
     setIsSubmitting(true);
-    const currentUser = getCurrentUser();
     // Use Google Name OR the Avatar Label if anonymous
     const userName = currentUser?.displayName || (myAvatar ? myAvatar.label : 'Pengunjung');
 
@@ -103,6 +112,45 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
     setIsSubmitting(false);
     if (onUpdate) onUpdate();
   };
+
+  // --- COMMENT EDIT/DELETE ACTIONS (SUPER ADMIN) ---
+
+  const handleStartEdit = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingText(comment.text);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditingText('');
+  };
+
+  const handleSaveEdit = async (commentId: string) => {
+    if (!editingText.trim()) return;
+    setIsUpdatingComment(true);
+    try {
+      await updateComment(video.id, commentId, editingText);
+      handleCancelEdit();
+      if (onUpdate) onUpdate();
+    } catch (e) {
+      alert("Gagal mengupdate komentar");
+    } finally {
+      setIsUpdatingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus (reset) komentar ini secara permanen?")) {
+      try {
+        await deleteComment(video.id, commentId);
+        if (onUpdate) onUpdate();
+      } catch (e) {
+        alert("Gagal menghapus komentar");
+      }
+    }
+  };
+
+  // --- SHARE ACTIONS ---
 
   const handleWhatsAppShare = async () => {
     // Increment share count locally and in DB
@@ -367,22 +415,72 @@ export const VideoCard: React.FC<VideoCardProps> = ({ video, isAdmin, onDelete, 
                   ) : (
                     <div className="space-y-4 pb-4">
                       {comments.map((comment) => (
-                        <div key={comment.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-sm relative">
+                        <div key={comment.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-sm relative group/comment">
+                          {/* Super Admin Actions */}
+                          {isSuperAdmin && !editingCommentId && (
+                             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/comment:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={() => handleStartEdit(comment)}
+                                  className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-slate-800 rounded bg-slate-900 shadow-sm border border-slate-700"
+                                  title="Edit Komentar"
+                                >
+                                   <Edit2 className="w-3 h-3" />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded bg-slate-900 shadow-sm border border-slate-700"
+                                  title="Hapus/Reset Komentar"
+                                >
+                                   <Trash2 className="w-3 h-3" />
+                                </button>
+                             </div>
+                          )}
+
                           {comment.reaction && (
                             <div className="absolute top-4 right-4 text-lg" title="Reaksi">{comment.reaction}</div>
                           )}
-                          <p className="text-slate-200 text-sm mb-2 leading-relaxed whitespace-pre-wrap pr-6">{comment.text}</p>
-                          <div className="flex justify-between items-end border-t border-slate-900 pt-2 mt-2">
-                             <div className="flex items-center gap-2">
-                                <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-xs">
-                                   {comment.userName ? comment.userName.charAt(0) : 'A'}
+
+                          {editingCommentId === comment.id ? (
+                             <div className="space-y-2">
+                                <textarea
+                                   value={editingText}
+                                   onChange={(e) => setEditingText(e.target.value)}
+                                   className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:border-indigo-500 outline-none"
+                                   rows={3}
+                                />
+                                <div className="flex gap-2 justify-end">
+                                   <button 
+                                      onClick={handleCancelEdit}
+                                      className="px-3 py-1 text-xs text-slate-400 hover:bg-slate-800 rounded flex items-center gap-1"
+                                      disabled={isUpdatingComment}
+                                   >
+                                      <XCircle className="w-3 h-3" /> Batal
+                                   </button>
+                                   <button 
+                                      onClick={() => handleSaveEdit(comment.id)}
+                                      className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-500 flex items-center gap-1"
+                                      disabled={isUpdatingComment}
+                                   >
+                                      <Check className="w-3 h-3" /> Simpan
+                                   </button>
                                 </div>
-                                <span className="text-indigo-400 text-xs font-semibold">{comment.userName || 'Anonymous'}</span>
                              </div>
-                             <span className="text-slate-600 text-[10px] font-medium">
-                              {new Date(comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                            </span>
-                          </div>
+                          ) : (
+                             <>
+                                <p className="text-slate-200 text-sm mb-2 leading-relaxed whitespace-pre-wrap pr-6">{comment.text}</p>
+                                <div className="flex justify-between items-end border-t border-slate-900 pt-2 mt-2">
+                                   <div className="flex items-center gap-2">
+                                      <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-xs">
+                                         {comment.userName ? comment.userName.charAt(0) : 'A'}
+                                      </div>
+                                      <span className="text-indigo-400 text-xs font-semibold">{comment.userName || 'Anonymous'}</span>
+                                   </div>
+                                   <span className="text-slate-600 text-[10px] font-medium">
+                                    {new Date(comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                                  </span>
+                                </div>
+                             </>
+                          )}
                         </div>
                       ))}
                     </div>

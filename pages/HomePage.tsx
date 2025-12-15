@@ -7,7 +7,7 @@ import { Search, ChevronLeft, ChevronRight, Loader2, MessageSquareQuote, Star, S
 import { getCurrentUser } from '../services/authService';
 import { getVisitorId, generateAvatar } from '../services/avatarService';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 12;
 
 export const HomePage: React.FC = () => {
   const [videos, setVideos] = useState<VideoItem[]>([]);

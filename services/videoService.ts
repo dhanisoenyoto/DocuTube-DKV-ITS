@@ -1,7 +1,7 @@
 
 import { VideoItem, Comment, Lecturer, AboutData, AppTestimonial } from '../types';
 import { db, isConfigured } from './firebaseConfig';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment, writeBatch, setDoc, getDoc, limit } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment, writeBatch, setDoc, getDoc, limit, getDocFromCache } from 'firebase/firestore';
 
 const STORAGE_KEY = 'drivestream_db_v1';
 const LECTURER_STORAGE_KEY = 'lecturer_db_v1';
@@ -308,6 +308,62 @@ export const addComment = async (videoId: string, text: string, userName?: strin
   if (video) {
     if (!video.comments) video.comments = [];
     video.comments.unshift(newComment);
+    saveLocalVideos(videos);
+  }
+};
+
+// NEW: Delete specific comment (Admin Only)
+export const deleteComment = async (videoId: string, commentId: string): Promise<void> => {
+  if (isConfigured && db) {
+    try {
+      const videoRef = doc(db, COLLECTION_NAME, videoId);
+      const videoSnap = await getDoc(videoRef);
+      if (videoSnap.exists()) {
+        const data = videoSnap.data() as VideoItem;
+        const updatedComments = (data.comments || []).filter(c => c.id !== commentId);
+        await updateDoc(videoRef, { comments: updatedComments });
+      }
+      return;
+    } catch (e) {
+      console.error("Firebase delete comment failed", e);
+      throw e;
+    }
+  }
+
+  const videos = getLocalVideos();
+  const video = videos.find(v => v.id === videoId);
+  if (video && video.comments) {
+    video.comments = video.comments.filter(c => c.id !== commentId);
+    saveLocalVideos(videos);
+  }
+};
+
+// NEW: Edit specific comment (Admin Only)
+export const updateComment = async (videoId: string, commentId: string, newText: string): Promise<void> => {
+  if (isConfigured && db) {
+    try {
+      const videoRef = doc(db, COLLECTION_NAME, videoId);
+      const videoSnap = await getDoc(videoRef);
+      if (videoSnap.exists()) {
+        const data = videoSnap.data() as VideoItem;
+        const updatedComments = (data.comments || []).map(c => 
+          c.id === commentId ? { ...c, text: newText } : c
+        );
+        await updateDoc(videoRef, { comments: updatedComments });
+      }
+      return;
+    } catch (e) {
+      console.error("Firebase update comment failed", e);
+      throw e;
+    }
+  }
+
+  const videos = getLocalVideos();
+  const video = videos.find(v => v.id === videoId);
+  if (video && video.comments) {
+    video.comments = video.comments.map(c => 
+      c.id === commentId ? { ...c, text: newText } : c
+    );
     saveLocalVideos(videos);
   }
 };
