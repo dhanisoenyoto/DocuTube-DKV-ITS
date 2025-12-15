@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Download, Instagram, PlayCircle, Star, ExternalLink, Loader2, Sparkles, Film, Grid } from 'lucide-react';
+import { X, Download, Instagram, PlayCircle, Star, ExternalLink, Loader2, Sparkles, RefreshCw, Film } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { getVideos } from '../services/videoService';
 import { VideoItem } from '../types';
@@ -15,6 +15,17 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose })
   const [isGenerating, setIsGenerating] = useState(false);
   const [processedThumbnails, setProcessedThumbnails] = useState<string[]>([]);
   const [isLoadingImages, setIsLoadingImages] = useState(true);
+  const [displayVideos, setDisplayVideos] = useState<VideoItem[]>([]);
+
+  // Helper: Shuffle Array
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+  };
 
   // Helper: Convert URL to Base64 to bypass CORS in html2canvas
   const urlToBase64 = async (url: string): Promise<string | null> => {
@@ -32,31 +43,38 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose })
     }
   };
 
+  const generateLayout = async () => {
+    setIsLoadingImages(true);
+    try {
+      // 1. Get real videos
+      const videos = await getVideos();
+      
+      if (videos.length === 0) {
+          setIsLoadingImages(false);
+          return;
+      }
+
+      // 2. Shuffle and take top 5 for a "stacked" look
+      const shuffled = shuffleArray(videos);
+      const selected = shuffled.slice(0, 5);
+      setDisplayVideos(selected);
+      
+      // 3. Convert thumbnails to Base64
+      const promises = selected.map(v => urlToBase64(v.thumbnailUrl));
+      const results = await Promise.all(promises);
+      
+      const validImages = results.filter((img): img is string => !!img);
+      setProcessedThumbnails(validImages);
+    } catch (error) {
+      console.error("Error preparing story images:", error);
+    } finally {
+      setIsLoadingImages(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
-      setIsLoadingImages(true);
-      const prepareImages = async () => {
-        try {
-          // 1. Get real videos
-          const videos = await getVideos();
-          
-          // 2. Take top 4 videos (or random) for the grid
-          const topVideos = videos.slice(0, 4);
-          
-          // 3. Convert all thumbnails to Base64 in parallel
-          const promises = topVideos.map(v => urlToBase64(v.thumbnailUrl));
-          const results = await Promise.all(promises);
-          
-          // Filter out failed loads
-          const validImages = results.filter((img): img is string => !!img);
-          setProcessedThumbnails(validImages);
-        } catch (error) {
-          console.error("Error preparing story images:", error);
-        } finally {
-          setIsLoadingImages(false);
-        }
-      };
-      prepareImages();
+      generateLayout();
     }
   }, [isOpen]);
 
@@ -69,7 +87,7 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose })
     try {
       await new Promise(resolve => setTimeout(resolve, 500)); // Wait for render
       const canvas = await html2canvas(storyRef.current, {
-        scale: 2,
+        scale: 2, // High Res
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#0f172a',
@@ -104,89 +122,119 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose })
         {/* --- LEFT: CANVAS PREVIEW AREA --- */}
         <div className="flex-1 bg-slate-950 relative overflow-hidden flex flex-col items-center justify-center p-6 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]">
            
-           <h3 className="text-slate-400 text-sm mb-4 font-medium uppercase tracking-widest hidden md:block">
-             Preview Tampilan Story
-           </h3>
+           <div className="flex items-center gap-4 mb-4">
+               <h3 className="text-slate-400 text-sm font-medium uppercase tracking-widest hidden md:block">
+                 Preview Tampilan Story
+               </h3>
+               <button 
+                 onClick={generateLayout}
+                 disabled={isLoadingImages}
+                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-white rounded-full transition-colors border border-slate-700"
+               >
+                 <RefreshCw className={`w-3 h-3 ${isLoadingImages ? 'animate-spin' : ''}`} />
+                 Acak Tampilan
+               </button>
+           </div>
 
            {/* 
               Target Element for html2canvas. 
               Ratio 9:16 (360x640 base size)
            */}
-           <div className="relative shadow-2xl rounded-2xl overflow-hidden ring-8 ring-slate-800">
+           <div className="relative shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden ring-8 ring-slate-800">
              <div 
                ref={storyRef}
                className="relative w-[360px] h-[640px] bg-slate-950 overflow-hidden flex flex-col text-white select-none"
                style={{ 
                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                 background: 'linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%)',
+                 backgroundImage: 'linear-gradient(to bottom, #020617, #1e1b4b)',
                }}
              >
-                {/* Background Decor */}
-                <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-slate-950 to-slate-950"></div>
-                
+                {/* Abstract Background Shapes */}
+                <div className="absolute top-[-100px] left-[-50px] w-[300px] h-[300px] bg-orange-600/20 rounded-full blur-[80px]"></div>
+                <div className="absolute bottom-[-50px] right-[-50px] w-[400px] h-[400px] bg-indigo-600/20 rounded-full blur-[100px]"></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/noise.png')] opacity-10 mix-blend-overlay"></div>
+
                 {/* Content Wrapper */}
                 <div className="relative z-10 flex flex-col h-full">
                   
-                  {/* Header */}
-                  <div className="p-6 pb-2 flex items-center justify-between z-20">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full border border-white/10 shadow-lg">
-                      <PlayCircle className="w-4 h-4 text-orange-400 fill-orange-400" />
-                      <span className="font-bold text-sm tracking-wide">DocuTube ITS</span>
-                    </div>
-                    <div className="px-2 py-1 bg-orange-600 rounded text-[10px] font-bold tracking-wider uppercase shadow-lg">
-                      2025
-                    </div>
-                  </div>
-
-                  {/* Thumbnail Grid */}
-                  <div className="flex-1 p-4 flex flex-col gap-4 justify-center relative">
-                     {/* Title Overlay */}
-                     <div className="absolute top-10 left-0 w-full text-center z-30 pointer-events-none">
-                        <h2 className="text-3xl font-black italic tracking-tighter text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] px-4 leading-none">
-                           STREAMING <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">NOW</span>
-                        </h2>
+                  {/* Top Header */}
+                  <div className="pt-8 px-6 pb-2 flex items-center justify-between">
+                     <div className="flex flex-col">
+                        <span className="text-[10px] tracking-[0.3em] font-bold text-orange-500 uppercase">Screening Online</span>
+                        <span className="text-xl font-black italic tracking-tighter text-white">DOCUTUBE</span>
                      </div>
-
-                     {/* The Grid */}
-                     <div className="grid grid-cols-2 gap-3 transform rotate-[-2deg] scale-[0.95]">
-                        {isLoadingImages ? (
-                           // Loading Placeholders
-                           Array(4).fill(0).map((_, i) => (
-                              <div key={i} className="aspect-[4/5] bg-slate-800 rounded-xl animate-pulse border border-slate-700"></div>
-                           ))
-                        ) : processedThumbnails.length > 0 ? (
-                           processedThumbnails.map((img, idx) => (
-                              <div key={idx} className={`relative rounded-xl overflow-hidden shadow-2xl border border-slate-700/50 bg-slate-900 aspect-[4/5] ${idx % 2 === 0 ? 'translate-y-4' : ''}`}>
-                                 <img src={img} className="w-full h-full object-cover opacity-80" alt="Thumb" />
-                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-                                 <div className="absolute bottom-2 left-2 flex gap-0.5">
-                                    <Star className="w-2 h-2 text-yellow-400 fill-yellow-400" />
-                                    <Star className="w-2 h-2 text-yellow-400 fill-yellow-400" />
-                                    <Star className="w-2 h-2 text-yellow-400 fill-yellow-400" />
-                                 </div>
-                              </div>
-                           ))
-                        ) : (
-                           // Fallback if no videos found
-                           <div className="col-span-2 aspect-[4/5] bg-slate-800 flex items-center justify-center rounded-xl border border-slate-700">
-                              <Film className="w-12 h-12 text-slate-600" />
-                           </div>
-                        )}
+                     <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center bg-white/5 backdrop-blur-md">
+                        <PlayCircle className="w-5 h-5 text-white" />
                      </div>
                   </div>
 
-                  {/* Footer CTA */}
-                  <div className="p-8 pb-10 pt-2 flex flex-col items-center gap-3 z-20 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent mt-[-40px]">
-                     <div className="bg-white text-slate-900 px-6 py-3 rounded-xl font-bold text-sm shadow-[0_0_30px_rgba(255,255,255,0.15)] flex items-center gap-2 transform rotate-1 animate-pulse border-2 border-slate-200">
+                  {/* Creative Grid Layout (Staggered/Masonry feel) */}
+                  <div className="flex-1 relative overflow-hidden flex flex-col justify-center">
+                      {/* Rotated Container */}
+                      <div className="transform -rotate-[6deg] scale-110 translate-x-2 w-full">
+                         <div className="grid grid-cols-2 gap-3 px-4">
+                            {/* Column 1 (Shifted Up) */}
+                            <div className="flex flex-col gap-3 -mt-8">
+                               {isLoadingImages ? (
+                                  <div className="w-full aspect-[3/4] bg-slate-800 rounded-lg animate-pulse"></div>
+                               ) : processedThumbnails[0] ? (
+                                  <div className="relative group rounded-lg overflow-hidden shadow-2xl border border-white/10">
+                                     <img src={processedThumbnails[0]} className="w-full aspect-[3/4] object-cover opacity-90" alt="thumb" />
+                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-60"></div>
+                                  </div>
+                               ) : null}
+                               {processedThumbnails[2] && (
+                                  <div className="relative group rounded-lg overflow-hidden shadow-2xl border border-white/10">
+                                     <img src={processedThumbnails[2]} className="w-full aspect-video object-cover opacity-90" alt="thumb" />
+                                  </div>
+                               )}
+                            </div>
+
+                            {/* Column 2 (Shifted Down) */}
+                            <div className="flex flex-col gap-3 mt-8">
+                               {isLoadingImages ? (
+                                  <div className="w-full aspect-[3/4] bg-slate-800 rounded-lg animate-pulse"></div>
+                               ) : processedThumbnails[1] ? (
+                                  <div className="relative group rounded-lg overflow-hidden shadow-2xl border border-white/10">
+                                     <img src={processedThumbnails[1]} className="w-full aspect-[3/4] object-cover opacity-90" alt="thumb" />
+                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-60"></div>
+                                  </div>
+                               ) : null}
+                               {processedThumbnails[3] && (
+                                  <div className="relative group rounded-lg overflow-hidden shadow-2xl border border-white/10">
+                                     <img src={processedThumbnails[3]} className="w-full aspect-square object-cover opacity-90" alt="thumb" />
+                                  </div>
+                               )}
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* Foreground Text Overlay */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
+                         <div className="bg-black/30 backdrop-blur-sm p-4 w-full text-center border-y border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] transform rotate-[-2deg]">
+                            <h2 className="text-4xl font-black text-white leading-none drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] tracking-tight">
+                               2025 <span className="text-orange-500">DKV ITS</span>
+                            </h2>
+                            <div className="flex items-center justify-center gap-2 mt-1">
+                               <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400 animate-pulse" />
+                               <span className="text-sm font-bold tracking-widest uppercase text-slate-200">Official Selection</span>
+                               <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400 animate-pulse" />
+                            </div>
+                         </div>
+                      </div>
+                  </div>
+
+                  {/* Bottom Area */}
+                  <div className="pb-12 px-8 flex flex-col items-center z-30">
+                     <div className="w-full bg-white/95 text-slate-900 py-3 rounded-xl font-bold text-center shadow-[0_0_20px_rgba(255,255,255,0.2)] flex items-center justify-center gap-2 text-sm">
                         <ExternalLink className="w-4 h-4" />
-                        TONTON KARYA KAMI
+                        TONTON DI SINI
                      </div>
-                     
-                     <div className="flex flex-col items-center">
-                        <div className="w-0.5 h-6 bg-slate-600 rounded-full mb-1"></div>
-                        <p className="text-[10px] font-mono text-orange-400 bg-slate-900/80 px-2 py-1 rounded border border-slate-800">
-                           dokumenter2025.online
-                        </p>
+                     <div className="flex flex-col items-center mt-2">
+                        <div className="w-[1px] h-6 bg-slate-500/50"></div>
+                        <div className="bg-slate-900/80 px-3 py-1 rounded-md border border-slate-700/50 backdrop-blur-md">
+                           <span className="text-[10px] font-mono text-orange-400 tracking-wide">dokumenter2025.online</span>
+                        </div>
                      </div>
                   </div>
 
@@ -197,19 +245,19 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose })
 
         {/* --- RIGHT: INSTRUCTIONS --- */}
         <div className="w-full md:w-[420px] bg-slate-900 border-l border-slate-800 p-8 flex flex-col overflow-y-auto">
-           <div className="mb-8">
+           <div className="mb-6">
               <div className="flex items-center gap-4 mb-4">
                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 flex items-center justify-center shadow-lg">
                     <Instagram className="w-8 h-8 text-white" />
                  </div>
                  <div>
                     <h2 className="text-xl font-bold text-white">Share to Story</h2>
-                    <p className="text-sm text-slate-400">Tampilkan cuplikan karya di Instagram!</p>
+                    <p className="text-sm text-slate-400">Bagikan karya mahasiswa DKV ITS</p>
                  </div>
               </div>
-              <p className="text-sm text-slate-400 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                 Gambar preview di samping dibuat otomatis dari video-video teratas yang ada di website ini.
-              </p>
+              <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700 text-xs text-slate-400">
+                 <p>Klik tombol <strong>"Acak Tampilan"</strong> di atas preview untuk mendapatkan kombinasi video yang berbeda.</p>
+              </div>
            </div>
 
            <div className="space-y-6 flex-1">
