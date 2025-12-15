@@ -1,15 +1,18 @@
 
-import { VideoItem, Comment, Lecturer, AboutData } from '../types';
+import { VideoItem, Comment, Lecturer, AboutData, AppTestimonial } from '../types';
 import { db, isConfigured } from './firebaseConfig';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment, writeBatch, setDoc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, orderBy, arrayUnion, increment, writeBatch, setDoc, getDoc, limit } from 'firebase/firestore';
 
 const STORAGE_KEY = 'drivestream_db_v1';
 const LECTURER_STORAGE_KEY = 'lecturer_db_v1';
 const ABOUT_STORAGE_KEY = 'about_content_v1';
+const TESTIMONIAL_STORAGE_KEY = 'app_testimonials_v1';
 const VIEWED_KEY = 'viewed_videos_list';
+
 const COLLECTION_NAME = 'videos';
 const LECTURER_COLLECTION = 'lecturers';
 const ABOUT_COLLECTION = 'about_content';
+const TESTIMONIAL_COLLECTION = 'app_testimonials';
 const ABOUT_DOC_ID = 'main_content';
 
 // --- INITIAL DUMMY DATA (Fallback) ---
@@ -58,6 +61,29 @@ const DEFAULT_ABOUT_DATA: AboutData = {
   address: "Gedung Desain Produk Industri & DKV, Kampus ITS Sukolilo, Surabaya, Jawa Timur 60111",
   email: "admin@dkv.its.ac.id"
 };
+
+const INITIAL_TESTIMONIALS: AppTestimonial[] = [
+  {
+    id: 't1',
+    text: 'Platform yang luar biasa! Sangat memudahkan untuk melihat karya-karya angkatan sebelumnya sebagai referensi.',
+    rating: 5,
+    userName: 'Alumni DKV 2020',
+    userAvatar: '🎓',
+    userAvatarBg: 'bg-indigo-500',
+    createdAt: Date.now() - 10000000,
+    isAnonymous: true
+  },
+  {
+    id: 't2',
+    text: 'Tampilannya keren dan modern. Suka banget sama fitur share ke story-nya!',
+    rating: 5,
+    userName: 'Pengunjung Surabaya',
+    userAvatar: '🏙️',
+    userAvatarBg: 'bg-orange-500',
+    createdAt: Date.now() - 5000000,
+    isAnonymous: true
+  }
+];
 
 // --- HELPER: LocalStorage Implementation ---
 const getLocalVideos = (): VideoItem[] => {
@@ -284,6 +310,37 @@ export const addComment = async (videoId: string, text: string, userName?: strin
     video.comments.unshift(newComment);
     saveLocalVideos(videos);
   }
+};
+
+// --- APP TESTIMONIAL SERVICES (NEW) ---
+
+export const getAppTestimonials = async (): Promise<AppTestimonial[]> => {
+  if (isConfigured && db) {
+    try {
+      const q = query(collection(db, TESTIMONIAL_COLLECTION), orderBy('createdAt', 'desc'), limit(20));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppTestimonial));
+    } catch (error) {
+       // Fallback
+    }
+  }
+  const stored = localStorage.getItem(TESTIMONIAL_STORAGE_KEY);
+  return stored ? JSON.parse(stored) : INITIAL_TESTIMONIALS;
+};
+
+export const addAppTestimonial = async (testimonial: AppTestimonial): Promise<void> => {
+  if (isConfigured && db) {
+    try {
+      const { id, ...data } = testimonial;
+      await addDoc(collection(db, TESTIMONIAL_COLLECTION), sanitizeData(data));
+      return;
+    } catch (e) {
+      console.error("Failed to add testimonial", e);
+      throw e;
+    }
+  }
+  const current = await getAppTestimonials();
+  localStorage.setItem(TESTIMONIAL_STORAGE_KEY, JSON.stringify([testimonial, ...current]));
 };
 
 // --- RESET STATISTICS ---

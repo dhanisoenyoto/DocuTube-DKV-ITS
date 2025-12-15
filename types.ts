@@ -67,3 +67,14 @@ export interface AboutData {
   address: string;
   email: string;
 }
+
+export interface AppTestimonial {
+  id: string;
+  text: string;
+  rating: number;
+  userName: string;
+  userAvatar?: string; // Can be URL or Emoji
+  userAvatarBg?: string; // For emoji background
+  createdAt: number;
+  isAnonymous: boolean;
+}
